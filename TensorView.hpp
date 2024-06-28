@@ -190,7 +190,7 @@ namespace tensor
     /// @brief linear indexing. read only access.
     /// @param[in] idx flattened index
     /// @return const reference to data at linear index `idx`.
-    TENSOR_HOST_DEVICE inline const TENSOR_CONST_QUAL(scalar) &operator[](index_t idx) const
+    TENSOR_HOST_DEVICE inline TENSOR_CONST_QUAL(scalar) &operator[](index_t idx) const
     {
 #ifdef TENSOR_DEBUG
       if (ptr == nullptr)
