@@ -4,8 +4,11 @@
 #include <type_traits>
 #include <cstdio>
 #include <stdexcept>
+#include <array>
+#include <vector>
 
 #ifdef TENSOR_USE_CUDA
+#include <cuda.h>
 #define TENSOR_HOST_DEVICE __host__ __device__
 #else
 #define TENSOR_HOST_DEVICE
@@ -44,7 +47,7 @@ namespace tensor
 #endif
 
   /// @brief terminates program/throws an out_of_range error.
-  inline void tensor_view_out_of_range()
+  inline void tensor_out_of_range()
   {
 #ifdef TENSOR_USE_CUDA
     fprintf(stderr, "TensorView out of range error.\n");
@@ -55,7 +58,7 @@ namespace tensor
   }
 
   /// @brief terminates program/throws exception with message indicating bad memory access.
-  inline void tensor_view_bad_memory_access()
+  inline void tensor_bad_memory_access()
   {
 #ifdef TENSOR_USE_CUDA
     fprintf(stderr, "TensorView attempting to dereference nullptr.");
@@ -65,230 +68,349 @@ namespace tensor
 #endif
   }
 
+  namespace details
+  {
+    template <size_t Rank>
+    class DynamicTensorShape
+    {
+    public:
+      template <TENSOR_INT_LIKE... Shape>
+      TENSOR_FUNC DynamicTensorShape(Shape... shape_) : len((1 * ... * shape_)), _shape{(index_t)shape_...}
+      {
+        static_assert(Rank > 0, "DynamicTensorShape must have a non-zero rank");
+        static_assert(sizeof...(shape_) == Rank, "wrong number of dimensions specified for DynanicTensorShape.");
+#ifdef TENSOR_DEBUG
+        if (((shape_ < 0) || ... || false))
+        {
+#ifdef TENSOR_USE_CUDA
+          fprintf(stderr, "DynamicTensorShape: all dimensions must be strictly positive.");
+          std::abort();
+#else
+          throw std::runtime_error("DynamicTensorShape: all dimensions must be strictly positive.");
+#endif
+        }
+#endif
+      }
+
+      template <TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC index_t operator()(Indices... indices) const
+      {
+        static_assert(sizeof...(Indices) == Rank, "wrong number of indices.");
+        return linear_index(std::forward<Indices>(indices)...);
+      }
+
+      TENSOR_FUNC index_t size() const
+      {
+        return len;
+      }
+
+      TENSOR_FUNC index_t shape(index_t d) const
+      {
+        return _shape[d];
+      }
+
+    private:
+      index_t len;
+      std::array<index_t, Rank> _shape;
+
+      template <index_t Dim = 0, TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC index_t linear_index(index_t index, Indices... indices) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= _shape[Dim])
+          tensor_out_of_range();
+#endif
+        if constexpr (Dim + 1 < Rank)
+          return index + _shape[Dim] * linear_index<Dim + 1>(std::forward<Indices>(indices)...);
+        else
+          return index;
+      }
+    };
+
+    template <size_t... Shape>
+    class FixedTensorShape
+    {
+    public:
+      FixedTensorShape() = default;
+
+      template <TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC index_t operator()(Indices... indices) const
+      {
+        static_assert(sizeof...(Indices) == rank, "wrong number of indices.");
+        return linear_index<Shape...>(std::forward<Indices>(indices)...);
+      }
+
+      static TENSOR_FUNC index_t size()
+      {
+        return len;
+      }
+
+      static TENSOR_FUNC index_t shape(index_t d)
+      {
+#ifdef TENSOR_DEBUG
+        if (d < 0 || d >= rank)
+          tensor_out_of_range();
+#endif
+        constexpr index_t _shape[] = {Shape...};
+        return _shape[d];
+      }
+
+    private:
+      static constexpr index_t len = (1 * ... * Shape);
+      static constexpr index_t rank = sizeof...(Shape);
+
+      template <index_t N, index_t... Ns, TENSOR_INT_LIKE... Indices>
+      static TENSOR_FUNC index_t linear_index(index_t index, Indices... indices)
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= N)
+          tensor_out_of_range();
+#endif
+        if constexpr (sizeof...(Indices) == 0)
+          return index;
+        else
+          return index + N * linear_index<Ns...>(std::forward<Indices>(indices)...);
+      }
+    };
+
+    template <typename T>
+    class ViewContainer
+    {
+    public:
+      using value_type = T;
+      using reference = T &;
+      using const_reference = TENSOR_CONST_QUAL(T) &;
+      using pointer = T *;
+      using const_pointer = TENSOR_CONST_QUAL(T) *;
+
+      TENSOR_FUNC ViewContainer(pointer data = nullptr) : ptr{data} {}
+
+      TENSOR_FUNC const_pointer data() const
+      {
+        return ptr;
+      }
+
+      TENSOR_FUNC pointer data()
+      {
+        return ptr;
+      }
+
+      TENSOR_FUNC reference operator[](index_t index)
+      {
+#ifdef TENSOR_DEBUG
+        if (ptr == nullptr)
+          tensor_bad_memory_access();
+#endif
+        return ptr[index];
+      }
+
+      TENSOR_FUNC const_pointer operator[](index_t index) const
+      {
+#ifdef TENSOR_DEBUG
+        if (ptr == nullptr)
+          tensor_bad_memory_access();
+#endif
+        return ptr[index];
+      }
+
+    private:
+      pointer ptr;
+    };
+
+    template <typename Shape, typename Container>
+    class __TensorType
+    {
+    public:
+      using value_type = typename Container::value_type;
+      using reference = typename Container::reference;
+      using const_reference = typename Container::reference;
+      using pointer = typename Container::pointer;
+      using const_pointer = typename Container::const_pointer;
+
+      __TensorType() = default;
+      ~__TensorType() = default;
+
+      template <typename _Container, TENSOR_INT_LIKE... Sizes>
+      TENSOR_FUNC __TensorType(_Container data, Sizes... sizes) : _shape(sizes...), container(data) {}
+
+      /// @brief shallow copy.
+      __TensorType(const __TensorType &) = default;
+      __TensorType &operator=(const __TensorType &) = default;
+
+      /// @brief move
+      __TensorType(__TensorType &&) = default;
+      __TensorType &operator=(__TensorType &&) = default;
+
+      /// @brief high dimensional read/write access.
+      /// @tparam ...Indices convertible to `index_t`
+      /// @param ...ids indices
+      /// @return reference to data at the index.
+      template <TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC reference at(Indices... indices)
+      {
+        return container[_shape(std::forward<Indices>(indices)...)];
+      }
+
+      /// @brief high dimensional read/write access.
+      /// @tparam ...Indices convertible to `index_t`
+      /// @param ...ids indices
+      /// @return reference to data at the index.
+      template <TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC const_reference at(Indices... indices) const
+      {
+        return container[_shape(std::forward<Indices>(indices)...)];
+      }
+
+      /// @brief high dimensional read/write access.
+      /// @tparam ...Indices convertible to `index_t`
+      /// @param ...ids indices
+      /// @return reference to data at the index.
+      template <TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC reference operator()(Indices... indices)
+      {
+        return container[_shape(std::forward<Indices>(indices)...)];
+      }
+
+      /// @brief high dimensional read/write access.
+      /// @tparam ...Indices convertible to `index_t`
+      /// @param ...ids indices
+      /// @return reference to data at the index.
+      template <TENSOR_INT_LIKE... Indices>
+      TENSOR_FUNC const_reference operator()(Indices... indices) const
+      {
+        return container[_shape(std::forward<Indices>(indices)...)];
+      }
+
+      /// @brief linear index access.
+      TENSOR_FUNC reference operator[](index_t index)
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= _shape.size())
+          tensor_out_of_range();
+#endif
+        return container[index];
+      }
+
+      /// @brief linear index access.
+      TENSOR_FUNC const_reference operator[](index_t index) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= _shape.size())
+          tensor_out_of_range();
+#endif
+        return container[index];
+      }
+
+      /// @brief implicit conversion to scalar*
+      TENSOR_FUNC operator pointer()
+      {
+        return container.data();
+      }
+
+      /// @brief implicit conversion to scalar*
+      TENSOR_FUNC operator const_pointer() const
+      {
+        return container.data();
+      }
+
+      /// @brief returns the externally managed array
+      TENSOR_FUNC pointer data()
+      {
+        return container.data();
+      }
+
+      /// @brief returns the externally managed array
+      TENSOR_FUNC const_pointer data() const
+      {
+        return container.data();
+      }
+
+      /// @brief returns pointer to start of tensor.
+      TENSOR_FUNC pointer begin()
+      {
+        return container.data();
+      }
+
+      /// @brief returns pointer to start of tensor.
+      TENSOR_FUNC const_pointer begin() const
+      {
+        return container.data();
+      }
+
+      /// @brief returns pointer to the element following the last element of tensor.
+      TENSOR_FUNC pointer end()
+      {
+        return begin() + _shape.size();
+      }
+
+      /// @brief returns pointer to the element following the last element of tensor.
+      TENSOR_FUNC const_pointer end() const
+      {
+        return container.data() + _shape.size();
+      }
+
+      /// @brief returns total number of elements in the tensor.
+      TENSOR_FUNC index_t size() const
+      {
+        return _shape.size();
+      }
+
+      /// @brief returns the size of the tensor along dimension d.
+      TENSOR_FUNC index_t shape(index_t d) const
+      {
+        return _shape.shape(d);
+      }
+
+    private:
+      Shape _shape;
+      Container container;
+    };
+  }; // namespace details
+
   /// @brief provides read/write access to an externally managed array with
   /// high dimensional indexing.
   /// @tparam scalar the type of array, e.g. double, int, etc.
   /// @tparam Rank the tensor dimension, e.g. 2 for a matrix
   template <typename scalar, size_t Rank>
-  class TensorView
+  using TensorView = details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>;
+
+  /// @brief high dimensional view for tensors with dimensions known at compile time.
+  /// @tparam scalar type of tensor elements
+  /// @tparam ...Shape shape of the tensor
+  template <typename scalar, size_t... Shape>
+  using FixedTensorView = details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>;
+
+  /// @brief high dimensional tensor with dimensions known at compile time.
+  ///
+  /// @details Fixed tensors use stack arrays and can be constructed in cuda
+  /// __device__ code and passed as arguments to __global__ kernel.
+  ///
+  /// @tparam scalar type of tensor elements
+  /// @tparam ...Shape shape of the tensor
+  template <typename scalar, size_t... Shape>
+  using FixedTensor = details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, sizeof...(Shape)>>;
+
+  /// @brief tensor type which manages its own memory (dynamically)
+  ///
+  /// @details Unlike the view type, this type dynamically allocates memory. For
+  /// cuda applications, this object may allocate device memory (via an
+  /// appropriate allocator), but the tensor object exists exclusively on the
+  /// host. However, a view of the tensor can be safely passed to the device.
+  ///
+  /// @tparam scalar the type of elements in the tensor e.g. float
+  /// @tparam Allocator an allocator for managing memory
+  /// @tparam Rank the order of the tensor, e.g. 2 for a matrix
+  template <typename scalar, size_t Rank, typename Allocator = std::allocator<scalar>>
+  using Tensor = details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>;
+
+  /// @brief returns a Tensor of the specified shape.
+  template <typename scalar, typename Allocator = std::allocator<scalar>, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto make_tensor(Sizes... shape)
   {
-  protected:
-    template <index_t Dim = 0, TENSOR_INT_LIKE... Inds>
-    TENSOR_FUNC index_t linear_index(index_t I, Inds... Is)
-    {
-#ifdef TENSOR_DEBUG
-      if (I < 0 || I >= _shape[Dim])
-        tensor_view_out_of_range();
-#endif
-
-      if constexpr (Dim + 1 < Rank)
-        return I + _shape[Dim] * linear_index<Dim + 1>(std::forward<Inds>(Is)...);
-      else
-        return I;
-    }
-
-    index_t _shape[Rank];
-    index_t len;
-    scalar *ptr;
-
-  public:
-    using value_t = scalar;
-    using ref_t = scalar &;
-    using cref_t = TENSOR_CONST_QUAL(scalar) &;
-    using ptr_t = scalar *;
-    using cptr_t = TENSOR_CONST_QUAL(scalar) *;
-
-    /// @brief empty tensor
-    constexpr TensorView() = default;
-    ~TensorView() = default;
-
-    /// @brief (shallow) copy tensor. Copy points to the same data.
-    /// @param[in] tensor to copy
-    TensorView(const TensorView &) = default;
-
-    /// @brief (shallow) copy tensor. Copy points to the same data.
-    /// @param[in] tensor to copy
-    /// @return `this`
-    TensorView &operator=(const TensorView &) = default;
-
-    /// @brief wrap externally managed array
-    /// @tparam ...Sizes sequence of `index_t`
-    /// @param[in] data_ externally managed array
-    /// @param[in] ...shape_ shape of array as a sequence of `index_t`s
-    template <TENSOR_INT_LIKE... Sizes>
-    TENSOR_FUNC explicit TensorView(scalar *data_, Sizes... shape_) : _shape{(index_t)shape_...}, len{(index_t)(1 * ... * shape_)}, ptr(data_)
-    {
-      static_assert(Rank > 0, "TensorView must have a positive number of dimensions");
-      static_assert(sizeof...(shape_) == Rank, "TensorView: wrong number of dimensions specified.");
-#ifdef TENSOR_DEBUG
-      if (((shape_ < 0) || ... || false))
-      {
-#ifdef TENSOR_USE_CUDA
-        fprintf(stderr, "TensorView all dimensions must be strictly positive.");
-        std::abort();
-#else
-        throw std::runtime_error("TensorView all dimensions must be strictly positive.");
-#endif
-      }
-#endif
-    }
-
-    /// @brief high dimensional read/write access.
-    /// @tparam ...Indices sequence of `index_t`
-    /// @param[in] ...ids indices
-    /// @return reference to data at index (`...ids`)
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC ref_t at(Indices... ids)
-    {
-      static_assert(sizeof...(ids) == Rank, "TensorView: wrong number of indices specified.");
-
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-#endif
-
-      return ptr[linear_index(std::forward<Indices>(ids)...)];
-    }
-
-    /// @brief high dimensional read-only access.
-    /// @tparam ...Indices sequence of `index_t`
-    /// @param[in] ...ids indices
-    /// @return const reference to data at index (`...ids`)
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC cref_t at(Indices... ids) const
-    {
-      static_assert(sizeof...(ids) == Rank, "TensorViewWrong number of indices specified.");
-
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-#endif
-
-      return ptr[linear_index(std::forward<Indices>(ids)...)];
-    }
-
-    /// @brief high dimensional read/write access.
-    /// @tparam ...Indices sequence of `index_t`
-    /// @param[in] ...ids indices
-    /// @return reference to data at index (`...ids`)
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC ref_t operator()(Indices... ids)
-    {
-      return at(std::forward<Indices>(ids)...);
-    }
-
-    /// @brief high dimensional read-only access.
-    /// @tparam ...Indices sequence of `index_t`
-    /// @param[in] ...ids indices
-    /// @return const reference to data at index (`...ids`)
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC cref_t operator()(Indices... ids) const
-    {
-      return at(std::forward<Indices>(ids)...);
-    }
-
-    /// @brief linear indexing. read/write access.
-    /// @param[in] idx flattened index
-    /// @return reference to data at linear index `idx`.
-    TENSOR_FUNC ref_t operator[](index_t idx)
-    {
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-      if (idx < 0 || idx >= len)
-        tensor_view_out_of_range();
-#endif
-
-      return ptr[idx];
-    }
-
-    /// @brief linear indexing. read only access.
-    /// @param[in] idx flattened index
-    /// @return const reference to data at linear index `idx`.
-    TENSOR_FUNC cref_t operator[](index_t idx) const
-    {
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-      if (idx < 0 || idx >= len)
-        tensor_view_out_of_range();
-#endif
-
-      return ptr[idx];
-    }
-
-    /// @brief implicit conversion to scalar* where the returned pointer is
-    /// the one managed by the tensor.
-    TENSOR_FUNC operator ptr_t()
-    {
-      return ptr;
-    }
-
-    /// @brief implicit conversion to scalar* where the returned pointer is
-    /// the one managed by the tensor.
-    TENSOR_FUNC operator cptr_t() const
-    {
-      return ptr;
-    }
-
-    /// @brief returns the externally managed array
-    TENSOR_FUNC ptr_t data()
-    {
-      return ptr;
-    }
-
-    /// @brief returns read-only pointer to the externally managed array
-    TENSOR_FUNC cptr_t data() const
-    {
-      return ptr;
-    }
-
-    /// @brief returns pointer to start of tensor.
-    TENSOR_FUNC ptr_t begin()
-    {
-      return ptr;
-    }
-
-    /// @brief returns pointer to the element following the last element of tensor.
-    TENSOR_FUNC ptr_t end()
-    {
-      return ptr + len;
-    }
-
-    /// @brief returns pointer to start of tensor.
-    TENSOR_FUNC cptr_t begin() const
-    {
-      return ptr;
-    }
-
-    /// @brief returns pointer to the element following the last element of tensor.
-    TENSOR_FUNC cptr_t end() const
-    {
-      return ptr + len;
-    }
-
-    /// @brief returns the shape of the tensor. Has length `Rank`
-    TENSOR_FUNC const index_t *shape() const
-    {
-      return _shape;
-    }
-
-    /// @brief returns the size of the tensor along dimension d.
-    TENSOR_FUNC index_t shape(index_t d) const
-    {
-#ifdef TENSOR_DEBUG
-      if (d < 0 || d >= Rank)
-        tensor_view_out_of_range();
-#endif
-      return _shape[d];
-    }
-
-    /// @brief returns total number of elements in the tensor.
-    TENSOR_FUNC index_t size() const
-    {
-      return len;
-    }
-  };
+    constexpr size_t rank = sizeof...(Sizes);
+    const index_t n = (1 * ... * shape);
+    return Tensor<scalar, rank, Allocator>(n, shape...);
+  }
 
   /// @brief wraps an array in a `TensorView`. Same as declaring a new
   /// `TensorView< sizeof...(Sizes), scalar >( data, shape... ).`
@@ -302,26 +424,16 @@ namespace tensor
     return TensorView<scalar, sizeof...(Sizes)>(data, shape...);
   }
 
-  /// @brief reshape `TensorView`. Returns new TensorView with new shape
-  /// but points to same data.
-  /// @tparam scalar type of array
-  /// @tparam ...Sizes sequence of `index_t`
-  /// @param[in] tensor the array
-  /// @param[in] ...shape the shape of the tensor
-  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const TensorView<scalar, Rank> &tensor, Sizes... shape)
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename ShapeType, typename ContainerType, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(const details::__TensorType<ShapeType, ContainerType> &tensor, Sizes... shape)
   {
     return reshape(tensor.data(), std::forward<Sizes>(shape)...);
   }
 
-  /// @brief reshape `TensorView`. Returns new TensorView with new shape
-  /// but points to same data.
-  /// @tparam scalar type of array
-  /// @tparam ...Sizes sequence of `index_t`
-  /// @param[in] tensor the array
-  /// @param[in] ...shape the shape of the tensor
-  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(TensorView<scalar, Rank> &tensor, Sizes... shape)
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename ShapeType, typename ContainerType, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(details::__TensorType<ShapeType, ContainerType> &tensor, Sizes... shape)
   {
     return reshape(tensor.data(), std::forward<Sizes>(shape)...);
   }
@@ -338,212 +450,26 @@ namespace tensor
   template <typename scalar>
   using cube_view = TensorView<scalar, 3>;
 
-  /// @brief high dimensional indexing for tensors with dimensions known at compile time.
-  /// @tparam scalar type of tensor elements
-  /// @tparam ...Shape shape of the tensor
-  template <typename scalar, size_t... Shape>
-  class FixedTensorView
-  {
-  private:
-    static constexpr index_t len = (1 * ... * Shape);
-    static constexpr index_t rank = sizeof...(Shape);
-
-    scalar *ptr;
-
-    template <index_t N, index_t... Ns, TENSOR_INT_LIKE... Is>
-    static TENSOR_FUNC index_t linear_index(index_t idx, Is... ids)
-    {
-#ifdef TENSOR_DEBUG
-      if (idx < 0 || idx >= N)
-        tensor_view_out_of_range();
-#endif
-
-      if constexpr (sizeof...(Is) == 0)
-        return idx;
-      else
-        return idx + N * linear_index<Ns...>(std::forward<Is>(ids)...);
-    }
-
-  public:
-    using value_t = scalar;
-    using ref_t = scalar &;
-    using cref_t = TENSOR_CONST_QUAL(scalar) &;
-    using ptr_t = scalar *;
-    using cptr_t = TENSOR_CONST_QUAL(scalar) *;
-
-    TENSOR_FUNC FixedTensorView(scalar *data = nullptr) : ptr{data}
-    {
-      static_assert(((Shape > 0) && ... && true), "FixedTensorView dimensions must be strictly positive.");
-      static_assert(rank > 0, "FixedTensorView must have at least one dimension.");
-    }
-
-    ~FixedTensorView() = default;
-
-    /// @brief shallow copy.
-    FixedTensorView(const FixedTensorView &) = default;
-    FixedTensorView &operator=(const FixedTensorView &) = default;
-
-    /// @brief high dimensional read/write access.
-    /// @tparam ...Indices convertible to `index_t`
-    /// @param ...ids indices
-    /// @return reference to data at the index.
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC ref_t at(Indices... ids)
-    {
-      static_assert(sizeof...(Indices) == rank, "FixedTensorView: wrong number of indices.");
-
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-#endif
-      return ptr[linear_index<Shape...>(std::forward<Indices>(ids)...)];
-    }
-
-    /// @brief high dimensional read/write access.
-    /// @tparam ...Indices convertible to `index_t`
-    /// @param ...ids indices
-    /// @return reference to data at the index.
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC cref_t at(Indices... ids) const
-    {
-      static_assert(sizeof...(Indices) == rank, "FixedTensorView: wrong number of indices.");
-
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-#endif
-      return ptr[linear_index<Shape...>(std::forward<Indices>(ids)...)];
-    }
-
-    /// @brief high dimensional read/write access.
-    /// @tparam ...Indices convertible to `index_t`
-    /// @param ...ids indices
-    /// @return reference to data at the index.
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC ref_t operator()(Indices... ids)
-    {
-      return at(std::forward<Indices>(ids)...);
-    }
-
-    /// @brief high dimensional read/write access.
-    /// @tparam ...Indices convertible to `index_t`
-    /// @param ...ids indices
-    /// @return reference to data at the index.
-    template <TENSOR_INT_LIKE... Indices>
-    TENSOR_FUNC cref_t operator()(Indices... ids) const
-    {
-      return at(std::forward<Indices>(ids)...);
-    }
-
-    /// @brief linear index access.
-    TENSOR_FUNC ref_t operator[](index_t idx)
-    {
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-      if (idx < 0 || idx >= len)
-        tensor_view_out_of_range();
-#endif
-      return ptr[idx];
-    }
-
-    /// @brief linear index access.
-    TENSOR_FUNC cref_t operator[](index_t idx) const
-    {
-#ifdef TENSOR_DEBUG
-      if (ptr == nullptr)
-        tensor_view_bad_memory_access();
-      if (idx < 0 || idx >= len)
-        tensor_view_out_of_range();
-#endif
-      return ptr[idx];
-    }
-
-    /// @brief implicit conversion to scalar*
-    TENSOR_FUNC operator ptr_t()
-    {
-      return ptr;
-    }
-
-    /// @brief implicit conversion to scalar*
-    TENSOR_FUNC operator cptr_t() const
-    {
-      return ptr;
-    }
-
-    /// @brief returns the externally managed array
-    TENSOR_FUNC ptr_t data()
-    {
-      return ptr;
-    }
-
-    /// @brief returns the externally managed array
-    TENSOR_FUNC cptr_t data() const
-    {
-      return ptr;
-    }
-
-    /// @brief returns pointer to start of tensor.
-    TENSOR_FUNC ptr_t begin()
-    {
-      return ptr;
-    }
-
-    /// @brief returns pointer to start of tensor.
-    TENSOR_FUNC cptr_t begin() const
-    {
-      return ptr;
-    }
-
-    /// @brief returns pointer to the element following the last element of tensor.
-    TENSOR_FUNC ptr_t end()
-    {
-      return ptr + len;
-    }
-
-    /// @brief returns pointer to the element following the last element of tensor.
-    TENSOR_FUNC cptr_t end() const
-    {
-      return ptr + len;
-    }
-
-    /// @brief returns total number of elements in the tensor.
-    static TENSOR_FUNC index_t size()
-    {
-      return len;
-    }
-
-    /// @brief returns the size of the tensor along dimension d.
-    static TENSOR_FUNC index_t shape(index_t d)
-    {
-#ifdef TENSOR_DEBUG
-      if (d < 0 || d >= rank)
-        tensor_view_out_of_range();
-#endif
-      constexpr index_t _shape[] = {Shape...};
-      return _shape[d];
-    }
-  };
-
-  /// @brief reshapes a FixedTensorView to a TensorView of the specified shape
-  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const FixedTensorView<scalar, Shape...> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), shape...);
-  }
-
-  /// @brief reshapes a FixedTensorView to a TensorView of the specified shape
-  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(FixedTensorView<scalar, Shape...> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), shape...);
-  }
-
   template <typename scalar, size_t Shape0, size_t Shape1>
   using FixedMatrixView = FixedTensorView<scalar, Shape0, Shape1>;
 
   template <typename scalar, size_t Shape0, size_t Shape1, size_t Shape2>
   using FixedCubeView = FixedTensorView<scalar, Shape0, Shape1, Shape2>;
+
+  template <typename scalar, size_t Shape0, size_t Shape1>
+  using FixedMatrix = FixedTensor<scalar, Shape0, Shape1>;
+
+  template <typename scalar, size_t Shape0, size_t Shape1, size_t Shape2>
+  using FixedCube = FixedTensor<scalar, Shape0, Shape1, Shape2>;
+
+  template <typename scalar, typename Allocator = std::allocator<scalar>>
+  using Vector = Tensor<scalar, 1, Allocator>;
+
+  template <typename scalar, typename Allocator = std::allocator<scalar>>
+  using Matrix = Tensor<scalar, 2, Allocator>;
+
+  template <typename scalar, typename Allocator = std::allocator<scalar>>
+  using Cube = Tensor<scalar, 3, Allocator>;
 } // namespace tensor
 
 #endif
