@@ -230,8 +230,7 @@ namespace tensor
       __TensorType() = default;
       ~__TensorType() = default;
 
-      template <typename _Container, TENSOR_INT_LIKE... Sizes>
-      TENSOR_FUNC __TensorType(_Container data, Sizes... sizes) : _shape(sizes...), container(data) {}
+      explicit TENSOR_FUNC __TensorType(Shape shape_, Container container_) : _shape(shape_), container(container_) {}
 
       /// @brief shallow copy.
       __TensorType(const __TensorType &) = default;
@@ -361,7 +360,7 @@ namespace tensor
         return _shape.shape(d);
       }
 
-    private:
+    protected:
       Shape _shape;
       Container container;
     };
@@ -372,13 +371,32 @@ namespace tensor
   /// @tparam scalar the type of array, e.g. double, int, etc.
   /// @tparam Rank the tensor dimension, e.g. 2 for a matrix
   template <typename scalar, size_t Rank>
-  using TensorView = details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>;
+  class TensorView : public details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>
+  {
+  public:
+    template <TENSOR_INT_LIKE... Sizes>
+    TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
+  
+  private:
+    using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>;
+    using shape_type = details::DynamicTensorShape<Rank>;
+    using container_type = details::ViewContainer<scalar>;
+  };
 
   /// @brief high dimensional view for tensors with dimensions known at compile time.
   /// @tparam scalar type of tensor elements
   /// @tparam ...Shape shape of the tensor
   template <typename scalar, size_t... Shape>
-  using FixedTensorView = details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>;
+  class FixedTensorView : public details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>
+  {
+  public:
+    TENSOR_FUNC explicit FixedTensorView(scalar *data) : base_tensor(shape_type{}, container_type(data)) {}
+
+  private:
+    using base_tensor = details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>;
+    using shape_type = details::FixedTensorShape<Shape...>;
+    using container_type = details::ViewContainer<scalar>;
+  };
 
   /// @brief high dimensional tensor with dimensions known at compile time.
   ///
@@ -388,7 +406,7 @@ namespace tensor
   /// @tparam scalar type of tensor elements
   /// @tparam ...Shape shape of the tensor
   template <typename scalar, size_t... Shape>
-  using FixedTensor = details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, sizeof...(Shape)>>;
+  class FixedTensor : public details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, sizeof...(Shape)>> {};
 
   /// @brief tensor type which manages its own memory (dynamically)
   ///
@@ -401,15 +419,24 @@ namespace tensor
   /// @tparam Allocator an allocator for managing memory
   /// @tparam Rank the order of the tensor, e.g. 2 for a matrix
   template <typename scalar, size_t Rank, typename Allocator = std::allocator<scalar>>
-  using Tensor = details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>;
+  class Tensor : public details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>
+  {
+  public:
+    template <TENSOR_INT_LIKE... Sizes>
+    inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type( (1*...*shape) )) {}
+  
+  private:
+    using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>;
+    using shape_type = details::DynamicTensorShape<Rank>;
+    using container_type = std::vector<scalar, Allocator>;
+  };
 
   /// @brief returns a Tensor of the specified shape.
   template <typename scalar, typename Allocator = std::allocator<scalar>, TENSOR_INT_LIKE... Sizes>
   TENSOR_FUNC auto make_tensor(Sizes... shape)
   {
     constexpr size_t rank = sizeof...(Sizes);
-    const index_t n = (1 * ... * shape);
-    return Tensor<scalar, rank, Allocator>(n, shape...);
+    return Tensor<scalar, rank, Allocator>(shape...);
   }
 
   /// @brief wraps an array in a `TensorView`. Same as declaring a new

@@ -29,7 +29,8 @@ int main()
     double x[6];
 
     auto matrix = reshape(x, 2, 3);
-    // decltype(matrix) == matrix_view<double> == TensorView<2, double>
+    // or:
+    // TensorView<double, 2> matrix(x, 2, 3);
 
     for (index_t j = 0; j < 3; ++j)
     {
@@ -92,6 +93,8 @@ using namespace tensor;
 int main()
 {
     auto matrix = make_tensor<double>(2, 3);
+    // or:
+    // Tensor<double, 2> matrix(2, 3);
 
     for (index_t j = 0; j < 3; ++j)
     {
