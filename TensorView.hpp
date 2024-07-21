@@ -50,10 +50,10 @@ namespace tensor
   inline void tensor_out_of_range()
   {
 #ifdef TENSOR_USE_CUDA
-    fprintf(stderr, "TensorView out of range error.\n");
+    fprintf(stderr, "TensorView: out of range error.\n");
     std::abort();
 #else
-    throw std::out_of_range("TensorView out of range error.\n");
+    throw std::out_of_range("TensorView: out of range error.\n");
 #endif
   }
 
@@ -61,10 +61,21 @@ namespace tensor
   inline void tensor_bad_memory_access()
   {
 #ifdef TENSOR_USE_CUDA
-    fprintf(stderr, "TensorView attempting to dereference nullptr.");
+    fprintf(stderr, "TensorView: attempting to dereference nullptr.");
     std::abort();
 #else
-    throw std::runtime_error("TensorView attempting to dereference nullptr.");
+    throw std::runtime_error("TensorView: attempting to dereference nullptr.");
+#endif
+  }
+
+  /// @brief terminates program/throws exception with message indicating that the tensor shape is illogical.
+  inline void tensor_bad_shape()
+  {
+#ifdef TENSOR_USE_CUDA
+    fprintf(stderr, "TensorView: all dimensions must be strictly positive.");
+    std::abort();
+#else
+    throw std::logic_error("TensorView: all dimensions must be strictly positive.");
 #endif
   }
 
@@ -80,15 +91,8 @@ namespace tensor
         static_assert(Rank > 0, "DynamicTensorShape must have a non-zero rank");
         static_assert(sizeof...(shape_) == Rank, "wrong number of dimensions specified for DynanicTensorShape.");
 #ifdef TENSOR_DEBUG
-        if (((shape_ < 0) || ... || false))
-        {
-#ifdef TENSOR_USE_CUDA
-          fprintf(stderr, "DynamicTensorShape: all dimensions must be strictly positive.");
-          std::abort();
-#else
-          throw std::runtime_error("DynamicTensorShape: all dimensions must be strictly positive.");
-#endif
-        }
+        if (((shape_ <= 0) || ... || false))
+          tensor_bad_shape();
 #endif
       }
 
@@ -107,6 +111,18 @@ namespace tensor
       TENSOR_FUNC index_t shape(index_t d) const
       {
         return _shape[d];
+      }
+
+      template <TENSOR_INT_LIKE... Sizes>
+      TENSOR_FUNC void reshape(Sizes... new_shape)
+      {
+        static_assert(sizeof...(Sizes) == Rank, "wrong number of dimensions.");
+#ifdef TENSOR_DEBUG
+        if (( (new_shape <= 0) || ... || false ))
+          tensor_bad_shape();
+#endif
+        _shape = {(index_t)new_shape...};
+        len = (1 * ... * new_shape);
       }
 
     private:
@@ -377,6 +393,12 @@ namespace tensor
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
   
+    template <TENSOR_INT_LIKE... Sizes>
+    TENSOR_FUNC void reshape(Sizes... new_shape)
+    {
+      this->_shape.reshape(std::forward<Sizes>(new_shape)...);
+    }
+
   private:
     using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>;
     using shape_type = details::DynamicTensorShape<Rank>;
@@ -425,6 +447,13 @@ namespace tensor
     template <TENSOR_INT_LIKE... Sizes>
     inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type( (1*...*shape) )) {}
   
+    template <TENSOR_INT_LIKE... Sizes>
+    TENSOR_FUNC void reshape(Sizes... new_shape)
+    {
+      this->_shape.reshape(std::forward<Sizes>(new_shape)...);
+      this->container.resize(this->_shape.size());
+    }
+
   private:
     using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>;
     using shape_type = details::DynamicTensorShape<Rank>;
