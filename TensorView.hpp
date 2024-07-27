@@ -96,6 +96,11 @@ namespace tensor
 #endif
       }
 
+      static constexpr index_t order()
+      {
+        return Rank;
+      }
+
       template <TENSOR_INT_LIKE... Indices>
       TENSOR_FUNC index_t operator()(Indices... indices) const
       {
@@ -118,7 +123,7 @@ namespace tensor
       {
         static_assert(sizeof...(Sizes) == Rank, "wrong number of dimensions.");
 #ifdef TENSOR_DEBUG
-        if (( (new_shape <= 0) || ... || false ))
+        if (((new_shape <= 0) || ... || false))
           tensor_bad_shape();
 #endif
         _shape = {(index_t)new_shape...};
@@ -154,6 +159,11 @@ namespace tensor
       {
         static_assert(sizeof...(Indices) == rank, "wrong number of indices.");
         return linear_index<Shape...>(std::forward<Indices>(indices)...);
+      }
+
+      static constexpr index_t order()
+      {
+        return rank;
       }
 
       static TENSOR_FUNC index_t size()
@@ -255,6 +265,13 @@ namespace tensor
       /// @brief move
       __TensorType(__TensorType &&) = default;
       __TensorType &operator=(__TensorType &&) = default;
+
+      /// @brief returns the order of the tensor, i.e. the number of dimensions
+      /// of the tensor.
+      static constexpr index_t order()
+      {
+        return Shape::order();
+      }
 
       /// @brief high dimensional read/write access.
       /// @tparam ...Indices convertible to `index_t`
@@ -392,7 +409,7 @@ namespace tensor
   public:
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
-  
+
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC void reshape(Sizes... new_shape)
     {
@@ -428,7 +445,9 @@ namespace tensor
   /// @tparam scalar type of tensor elements
   /// @tparam ...Shape shape of the tensor
   template <typename scalar, size_t... Shape>
-  class FixedTensor : public details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, sizeof...(Shape)>> {};
+  class FixedTensor : public details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, sizeof...(Shape)>>
+  {
+  };
 
   /// @brief tensor type which manages its own memory (dynamically)
   ///
@@ -445,8 +464,8 @@ namespace tensor
   {
   public:
     template <TENSOR_INT_LIKE... Sizes>
-    inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type( (1*...*shape) )) {}
-  
+    inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type((1 * ... * shape))) {}
+
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC void reshape(Sizes... new_shape)
     {
