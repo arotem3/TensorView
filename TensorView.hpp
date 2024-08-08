@@ -79,8 +79,129 @@ namespace tensor
 #endif
   }
 
+  struct span
+  {
+  public:
+    index_t begin;
+    index_t end;
+    index_t stride;
+
+    constexpr explicit span(index_t Begin, index_t End, index_t inc = 1) : begin{Begin}, end{End}, stride{inc} {}
+
+    TENSOR_FUNC index_t size() const
+    {
+      return (end - begin) / stride;
+    }
+  };
+
+  struct all
+  {
+  };
+
+  template <typename scalar, size_t Rank>
+  class SubView;
+
   namespace details
   {
+    constexpr span operator+(const span &x, index_t i)
+    {
+      return span(x.begin + i, x.end + i, x.stride);
+    }
+
+    constexpr span operator+(index_t i, const span &x)
+    {
+      return span(x.begin + i, x.end + i, x.stride);
+    }
+
+    constexpr span operator*(index_t s, const span &x)
+    {
+      return span(s * x.begin, s * x.end, s * x.stride);
+    }
+
+    constexpr std::array<span, 2> operator+(const span &x, const span &y)
+    {
+      return {x, y};
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N> add(index_t i, const std::array<span, N> &spans, std::index_sequence<I...>)
+    {
+      return {i + spans[0], spans[I + 1]...};
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N> scale(index_t s, const std::array<span, N> &spans, std::index_sequence<I...>)
+    {
+      return {(s * spans[I])...};
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N> operator+(index_t i, const std::array<span, N> &spans)
+    {
+      static_assert(N > 0);
+      return add(i, spans, std::make_index_sequence<N - 1>{});
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N> operator+(const std::array<span, N> &spans, index_t i)
+    {
+      static_assert(N > 0);
+      return add(i, spans, std::make_index_sequence<N - 1>{});
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N> operator*(index_t s, const std::array<span, N> &spans)
+    {
+      return scale(s, spans, std::make_index_sequence<N>{});
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N + 1> concat(const span &x, const std::array<span, N> &spans, std::index_sequence<I...>)
+    {
+      return {x, spans[I]...};
+    }
+
+    template <size_t N, size_t... I>
+    constexpr std::array<span, N + 1> concat(const std::array<span, N> &spans, const span &x, std::index_sequence<I...>)
+    {
+      return {spans[I]..., x};
+    }
+
+    template <size_t N, size_t M, size_t... I, size_t... J>
+    constexpr std::array<span, N + M> concat(const std::array<span, N> &A, const std::array<span, M> &B, std::index_sequence<I...>, std::index_sequence<J...>)
+    {
+      return {A[I]..., B[J]...};
+    }
+
+    template <size_t N>
+    constexpr std::array<span, N + 1> operator+(const span &x, const std::array<span, N> &spans)
+    {
+      return concat(x, spans, std::make_index_sequence<N>{});
+    }
+
+    template <size_t N>
+    constexpr std::array<span, N + 1> operator+(const std::array<span, N> &spans, const span &x)
+    {
+      return concat(spans, x, std::make_index_sequence<N>{});
+    }
+
+    template <size_t N, size_t M>
+    constexpr auto operator+(const std::array<span, N> &a, const std::array<span, M> &b)
+    {
+      return concat(a, b, std::make_index_sequence<N>{}, std::make_index_sequence<M>{});
+    }
+
+    template <size_t N>
+    constexpr index_t offset(const std::array<span, N> &spans)
+    {
+      index_t begin = 0;
+      for (index_t d = 0; d < N; ++d)
+      {
+        begin += spans[d].begin;
+      }
+      return begin;
+    }
+
     template <size_t Rank>
     class DynamicTensorShape
     {
@@ -101,11 +222,11 @@ namespace tensor
         return Rank;
       }
 
-      template <TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC index_t operator()(Indices... indices) const
+      template <typename... Indices>
+      TENSOR_FUNC auto operator()(Indices... indices) const
       {
         static_assert(sizeof...(Indices) == Rank, "wrong number of indices.");
-        return linear_index(std::forward<Indices>(indices)...);
+        return compute_index(std::forward<Indices>(indices)...);
       }
 
       TENSOR_FUNC index_t size() const
@@ -134,17 +255,39 @@ namespace tensor
       index_t len;
       std::array<index_t, Rank> _shape;
 
-      template <index_t Dim = 0, TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC index_t linear_index(index_t index, Indices... indices) const
+      template <index_t Dim = 0, typename... Indices>
+      TENSOR_FUNC auto compute_index(index_t index, Indices... indices) const
       {
 #ifdef TENSOR_DEBUG
         if (index < 0 || index >= _shape[Dim])
           tensor_out_of_range();
 #endif
         if constexpr (Dim + 1 < Rank)
-          return index + _shape[Dim] * linear_index<Dim + 1>(std::forward<Indices>(indices)...);
+          return index + _shape[Dim] * compute_index<Dim + 1>(std::forward<Indices>(indices)...);
         else
           return index;
+      }
+
+      template <index_t Dim = 0, typename... Indices>
+      TENSOR_FUNC auto compute_index(span x, Indices... indices) const
+      {
+#ifdef TENSOR_DEBUG
+        if (x.begin < 0 || x.end >= _shape[Dim])
+          tensor_out_of_range();
+#endif
+        if constexpr (Dim + 1 < Rank)
+          return x + _shape[Dim] * compute_index<Dim + 1>(std::forward<Indices>(indices)...);
+        else
+          return x;
+      }
+
+      template <index_t Dim = 0, typename... Indices>
+      TENSOR_FUNC auto compute_index(all, Indices... indices) const
+      {
+        if constexpr (Dim + 1 < Rank)
+          return span(0, _shape[Dim]) + _shape[Dim] * compute_index<Dim + 1>(std::forward<Indices>(indices)...);
+        else
+          return span(0, _shape[Dim]);
       }
     };
 
@@ -154,11 +297,11 @@ namespace tensor
     public:
       FixedTensorShape() = default;
 
-      template <TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC index_t operator()(Indices... indices) const
+      template <typename... Indices>
+      TENSOR_FUNC auto operator()(Indices... indices) const
       {
         static_assert(sizeof...(Indices) == rank, "wrong number of indices.");
-        return linear_index<Shape...>(std::forward<Indices>(indices)...);
+        return compute_index<Shape...>(std::forward<Indices>(indices)...);
       }
 
       static constexpr index_t order()
@@ -185,8 +328,8 @@ namespace tensor
       static constexpr index_t len = (1 * ... * Shape);
       static constexpr index_t rank = sizeof...(Shape);
 
-      template <index_t N, index_t... Ns, TENSOR_INT_LIKE... Indices>
-      static TENSOR_FUNC index_t linear_index(index_t index, Indices... indices)
+      template <index_t N, index_t... Ns, typename... Indices>
+      static TENSOR_FUNC auto compute_index(index_t index, Indices... indices)
       {
 #ifdef TENSOR_DEBUG
         if (index < 0 || index >= N)
@@ -195,8 +338,156 @@ namespace tensor
         if constexpr (sizeof...(Indices) == 0)
           return index;
         else
-          return index + N * linear_index<Ns...>(std::forward<Indices>(indices)...);
+          return index + N * compute_index<Ns...>(std::forward<Indices>(indices)...);
       }
+
+      template <index_t N, index_t... Ns, typename... Indices>
+      static TENSOR_FUNC auto compute_index(span x, Indices... indices)
+      {
+#ifdef TENSOR_DEBUG
+        if (x.begin < 0 || x.end >= N)
+          tensor_out_of_range();
+#endif
+        if constexpr (sizeof...(Indices) == 0)
+          return x;
+        else
+          return x + N * compute_index<Ns...>(std::forward<Indices>(indices)...);
+      }
+
+      template <index_t N, index_t... Ns, typename... Indices>
+      static TENSOR_FUNC auto compute_index(all, Indices... indices)
+      {
+        if constexpr (sizeof...(Indices) == 0)
+          return span(0, N);
+        else
+          return span(0, N) + N * compute_index<Ns...>(std::forward<Indices>(indices)...);
+      }
+    };
+
+    template <size_t Rank>
+    struct StridedShape
+    {
+    public:
+      TENSOR_FUNC StridedShape(const std::array<span, Rank> &spans)
+      {
+        len = 1;
+        for (index_t d = 0; d < Rank; ++d)
+        {
+          _shape[d] = spans[d].size();
+          strides[d] = spans[d].stride;
+          len *= _shape[d];
+        }
+      }
+
+      static constexpr index_t order()
+      {
+        return Rank;
+      }
+
+      template <typename... Indices>
+      TENSOR_FUNC auto operator()(Indices... indices) const
+      {
+        return compute_index(std::forward<Indices>(indices)...);
+      }
+
+      TENSOR_FUNC index_t size() const
+      {
+        return len;
+      }
+
+      TENSOR_FUNC index_t shape(index_t d) const
+      {
+        return _shape[d];
+      }
+
+    private:
+      index_t len;
+      std::array<index_t, Rank> _shape;
+      std::array<index_t, Rank> strides;
+
+      template <index_t Dim = 0, typename... Indices>
+      TENSOR_FUNC auto compute_index(index_t index, Indices... indices) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= _shape[Dim])
+          tensor_out_of_range();
+#endif
+        if constexpr (Dim + 1 < Rank)
+          return strides[Dim] * index + compute_index<Dim + 1>(std::forward<Indices>(indices)...);
+        else
+          return strides[Dim] * index;
+      }
+
+      template <index_t Dim = 0, typename... Indices>
+      TENSOR_FUNC auto compute_index(span x, Indices... indices) const
+      {
+#ifdef TENSOR_DEBUG
+        if (x.begin < 0 || x.end >= _shape[Dim])
+          tensor_out_of_range();
+#endif
+        if constexpr (Dim + 1 < Rank)
+          return strides[Dim] * x + compute_index<Dim + 1>(std::forward<Indices>(indices)...);
+        else
+          return strides[Dim] * x;
+      }
+
+      template <index_t Dim = 0, typename... Indices>
+      TENSOR_FUNC auto compute_index(all, Indices... indices) const
+      {
+        if constexpr (Dim + 1 < Rank)
+          return strides[Dim] * span(0, _shape[Dim]) + compute_index<Dim + 1>(std::forward<Indices>(indices)...);
+        else
+          return strides[Dim] * span(0, _shape[Dim]);
+      }
+    };
+
+    template <>
+    struct StridedShape<1>
+    {
+    public:
+      TENSOR_FUNC StridedShape(const span &x) : len{x.size()}, stride{x.stride} {}
+
+      static constexpr index_t order()
+      {
+        return 1;
+      }
+
+      TENSOR_FUNC index_t operator()(index_t i) const
+      {
+#ifdef TENSOR_DEBUG
+        if (i < 0 || i >= len)
+          tensor_out_of_range();
+#endif
+        return stride * i;
+      }
+
+      TENSOR_FUNC span operator()(span x) const
+      {
+#ifdef TENSOR_DEBUG
+        if (x.begin < 0 || x.end >= len)
+          tensor_out_of_range();
+#endif
+        return stride * x;
+      }
+
+      TENSOR_FUNC span operator()(all) const
+      {
+        return stride * span(0, len);
+      }
+
+      TENSOR_FUNC index_t size() const
+      {
+        return len;
+      }
+
+      TENSOR_FUNC index_t shape(index_t) const
+      {
+        return len;
+      }
+
+    private:
+      index_t len;
+      index_t stride;
     };
 
     template <typename T>
@@ -273,44 +564,64 @@ namespace tensor
         return Shape::order();
       }
 
-      /// @brief high dimensional read/write access.
-      /// @tparam ...Indices convertible to `index_t`
-      /// @param ...ids indices
-      /// @return reference to data at the index.
-      template <TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC reference at(Indices... indices)
+      /**
+       * @brief high dimensional read/write access.
+       *
+       * @tparam Indices `span` or convertible to `index_t`
+       * @param indices indices
+       * @return if all indices are integers, the returns a reference to the
+       * data at the index. If any indices are `span` then returns a TensorView
+       * of the range specified by the spans.
+       */
+      template <typename... Indices>
+      TENSOR_FUNC decltype(auto) at(Indices... indices)
       {
-        return container[_shape(std::forward<Indices>(indices)...)];
+        return subview(_shape(std::forward<Indices>(indices)...));
       }
 
-      /// @brief high dimensional read/write access.
-      /// @tparam ...Indices convertible to `index_t`
-      /// @param ...ids indices
-      /// @return reference to data at the index.
-      template <TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC const_reference at(Indices... indices) const
+      /**
+       * @brief high dimensional read/write access.
+       *
+       * @tparam Indices `span` or convertible to `index_t`
+       * @param indices indices
+       * @return if all indices are integers, the returns a reference to the
+       * data at the index. If any indices are `span` then returns a TensorView
+       * of the range specified by the spans.
+       */
+      template <typename... Indices>
+      TENSOR_FUNC decltype(auto) at(Indices... indices) const
       {
-        return container[_shape(std::forward<Indices>(indices)...)];
+        return subview(_shape(std::forward<Indices>(indices)...));
       }
 
-      /// @brief high dimensional read/write access.
-      /// @tparam ...Indices convertible to `index_t`
-      /// @param ...ids indices
-      /// @return reference to data at the index.
-      template <TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC reference operator()(Indices... indices)
+      /**
+       * @brief high dimensional read/write access.
+       *
+       * @tparam Indices `span` or convertible to `index_t`
+       * @param indices indices
+       * @return if all indices are integers, the returns a reference to the
+       * data at the index. If any indices are `span` then returns a TensorView
+       * of the range specified by the spans.
+       */
+      template <typename... Indices>
+      TENSOR_FUNC decltype(auto) operator()(Indices... indices)
       {
-        return container[_shape(std::forward<Indices>(indices)...)];
+        return subview(_shape(std::forward<Indices>(indices)...));
       }
 
-      /// @brief high dimensional read/write access.
-      /// @tparam ...Indices convertible to `index_t`
-      /// @param ...ids indices
-      /// @return reference to data at the index.
-      template <TENSOR_INT_LIKE... Indices>
-      TENSOR_FUNC const_reference operator()(Indices... indices) const
+      /**
+       * @brief high dimensional read/write access.
+       *
+       * @tparam Indices `span` or convertible to `index_t`
+       * @param indices indices
+       * @return if all indices are integers, the returns a reference to the
+       * data at the index. If any indices are `span` then returns a TensorView
+       * of the range specified by the spans.
+       */
+      template <typename... Indices>
+      TENSOR_FUNC decltype(auto) operator()(Indices... indices) const
       {
-        return container[_shape(std::forward<Indices>(indices)...)];
+        return subview(_shape(std::forward<Indices>(indices)...));
       }
 
       /// @brief linear index access.
@@ -396,6 +707,38 @@ namespace tensor
     protected:
       Shape _shape;
       Container container;
+
+      TENSOR_FUNC reference subview(index_t index)
+      {
+        return container[index];
+      }
+
+      TENSOR_FUNC const_reference subview(index_t index) const
+      {
+        return container[index];
+      }
+
+      template <size_t N>
+      TENSOR_FUNC auto subview(const std::array<span, N> &spans)
+      {
+        return SubView<value_type, N>(data(), spans);
+      }
+
+      template <size_t N>
+      TENSOR_FUNC auto subview(const std::array<span, N> &spans) const
+      {
+        return SubView<const value_type, N>(data(), spans);
+      }
+
+      TENSOR_FUNC auto subview(const span &s)
+      {
+        return SubView<value_type, 1>(data(), s);
+      }
+
+      TENSOR_FUNC auto subview(const span &s) const
+      {
+        return SubView<const value_type, 1>(data(), s);
+      }
     };
   }; // namespace details
 
@@ -434,6 +777,33 @@ namespace tensor
   private:
     using base_tensor = details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>;
     using shape_type = details::FixedTensorShape<Shape...>;
+    using container_type = details::ViewContainer<scalar>;
+  };
+
+  /// @brief high dimensional sub-view into tensors
+  /// @tparam scalar type of tensor elements
+  /// @tparam Rank the dimension of the subview
+  template <typename scalar, size_t Rank>
+  class SubView : public details::__TensorType<details::StridedShape<Rank>, details::ViewContainer<scalar>>
+  {
+  public:
+    TENSOR_FUNC explicit SubView(scalar *data, const std::array<span, Rank> &spans) : base_tensor(shape_type(spans), container_type(data + details::offset(spans))) {}
+
+  private:
+    using base_tensor = details::__TensorType<details::StridedShape<Rank>, details::ViewContainer<scalar>>;
+    using shape_type = details::StridedShape<Rank>;
+    using container_type = details::ViewContainer<scalar>;
+  };
+
+  template <typename scalar>
+  class SubView<scalar, 1> : public details::__TensorType<details::StridedShape<1>, details::ViewContainer<scalar>>
+  {
+  public:
+    TENSOR_FUNC explicit SubView(scalar *data, const span &s) : base_tensor(shape_type(s), container_type(data + s.begin)) {}
+
+  private:
+    using base_tensor = details::__TensorType<details::StridedShape<1>, details::ViewContainer<scalar>>;
+    using shape_type = details::StridedShape<1>;
     using container_type = details::ViewContainer<scalar>;
   };
 
@@ -500,15 +870,57 @@ namespace tensor
   }
 
   /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename ShapeType, typename ContainerType, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const details::__TensorType<ShapeType, ContainerType> &tensor, Sizes... shape)
+  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(const TensorView<scalar, Rank> &tensor, Sizes... shape)
   {
     return reshape(tensor.data(), std::forward<Sizes>(shape)...);
   }
 
   /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename ShapeType, typename ContainerType, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(details::__TensorType<ShapeType, ContainerType> &tensor, Sizes... shape)
+  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(TensorView<scalar, Rank> &tensor, Sizes... shape)
+  {
+    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+  }
+
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(FixedTensorView<scalar, Shape...> &tensor, Sizes... shape)
+  {
+    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+  }
+
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(const FixedTensorView<scalar, Shape...> &tensor, Sizes... shape)
+  {
+    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+  }
+
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(FixedTensor<scalar, Shape...> &tensor, Sizes... shape)
+  {
+    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+  }
+
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(const FixedTensor<scalar, Shape...> &tensor, Sizes... shape)
+  {
+    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+  }
+
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(const Tensor<scalar, Rank> &tensor, Sizes... shape)
+  {
+    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+  }
+
+  /// @brief Returns new TensorView with new shape but points to same data.
+  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(Tensor<scalar, Rank> &tensor, Sizes... shape)
   {
     return reshape(tensor.data(), std::forward<Sizes>(shape)...);
   }

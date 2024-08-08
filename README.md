@@ -133,3 +133,41 @@ int main()
     return 0;
 }
 ```
+
+# Subviews
+
+When indexing into high dimensional tensors it may be convinient to view lower dimensional slices, or to pass subranges to functions. This is achieved by passing instances of `span` to the tensor index. Examples are below:
+
+```c++
+#include "TensorView.hpp"
+
+using namespace tensor;
+
+int main()
+{
+    Tensor<double, 4> x(10, 10, 10, 10);
+
+    // a is a double&
+    decltype(auto) a = x(0, 0, 0, 0);
+
+    // b is a SubView<double,1> of size (2,)
+    decltype(auto) b = x(0, 0, span(1, 5, 2), 0);
+
+    // c is a SubView<double,2> of size (10, 5)
+    decltype(auto) c = x(0, all(), 0, span(0, 5));
+
+    // d is a SubView<double,3> of size (5, 10, 2)
+    decltype(auto) d = x(span(0, 10, 2), all(), span(0, 10, 5), 0);
+
+    // e is a SubView<double,4> of size (10,10,10,3)
+    decltype(auto) e = x(all(), all(), all(), span(0, 3));
+
+    // we can also compute subviews of subviews.
+    // e.g. f is a SubView<double,1> of size (2,)
+    decltype(auto) f = d(0, 0, all());
+
+    return 0;
+}
+```
+
+The `SubView` is used in the same way a `TensorView` would be used, with the exception that this view type cannot be reshaped, and a `SubView` is typically only constructed by indexing another tensor type.
