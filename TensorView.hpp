@@ -755,6 +755,8 @@ namespace tensor
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
 
+    TENSOR_FUNC Tensor() : base_tensor(shape_type(), container_type(nullptr)) {}
+
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC void reshape(Sizes... new_shape)
     {
