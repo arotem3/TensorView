@@ -542,7 +542,7 @@ namespace tensor
     public:
       using value_type = typename Container::value_type;
       using reference = typename Container::reference;
-      using const_reference = typename Container::reference;
+      using const_reference = typename Container::const_reference;
       using pointer = typename Container::pointer;
       using const_pointer = typename Container::const_pointer;
 
