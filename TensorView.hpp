@@ -210,12 +210,14 @@ namespace tensor
       TENSOR_FUNC DynamicTensorShape(Shape... shape_) : len((1 * ... * shape_)), _shape{(index_t)shape_...}
       {
         static_assert(Rank > 0, "DynamicTensorShape must have a non-zero rank");
-        static_assert(sizeof...(shape_) == Rank, "wrong number of dimensions specified for DynanicTensorShape.");
+        static_assert(sizeof...(shape_) == Rank, "wrong number of dimensions specified for DynamicTensorShape.");
 #ifdef TENSOR_DEBUG
         if (((shape_ <= 0) || ... || false))
           tensor_bad_shape();
 #endif
       }
+
+      TENSOR_FUNC DynamicTensorShape() : len{0}, _shape{} {}
 
       static constexpr index_t order()
       {
@@ -835,6 +837,8 @@ namespace tensor
   public:
     template <TENSOR_INT_LIKE... Sizes>
     inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type((1 * ... * shape))) {}
+
+    inline Tensor() : base_tensor(shape_type(), container_type(0)) {}
 
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC void reshape(Sizes... new_shape)
