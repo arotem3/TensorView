@@ -523,7 +523,7 @@ namespace tensor
         return ptr[index];
       }
 
-      TENSOR_FUNC const_pointer operator[](index_t index) const
+      TENSOR_FUNC const_reference operator[](index_t index) const
       {
 #ifdef TENSOR_DEBUG
         if (ptr == nullptr)
