@@ -28,7 +28,7 @@ option(TENSOR_ALWAYS_MUTABLE
 option(TENSOR_DEBUG "Enables bound checks for indexing into TensorView objects." OFF)
 
 add_library(tensor_view INTERFACE)
-target_sources(tensor_view INTERFACE TensorView.hpp)
+target_sources(tensor_view INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp)
 
 message("build = ${CMAKE_BUILD_TYPE}")
 string(TOLOWER ${CMAKE_BUILD_TYPE} build_type)
