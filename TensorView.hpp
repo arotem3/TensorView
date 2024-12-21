@@ -47,13 +47,13 @@ namespace tensor
 #endif
 
   /// @brief terminates program/throws an out_of_range error.
-  inline void tensor_out_of_range()
+  inline void tensor_out_of_range(const char *message)
   {
 #ifdef TENSOR_USE_CUDA
-    fprintf(stderr, "TensorView: out of range error.\n");
-    std::abort();
+    printf("TensorView: out of range error: %s\n", message);
+    assert(false);
 #else
-    throw std::out_of_range("TensorView: out of range error.\n");
+    throw std::out_of_range(std::string("TensorView: out of range error: ") + message);
 #endif
   }
 
@@ -61,8 +61,8 @@ namespace tensor
   inline void tensor_bad_memory_access()
   {
 #ifdef TENSOR_USE_CUDA
-    fprintf(stderr, "TensorView: attempting to dereference nullptr.");
-    std::abort();
+    printf("TensorView: attempting to dereference nullptr.");
+    assert(false);
 #else
     throw std::runtime_error("TensorView: attempting to dereference nullptr.");
 #endif
@@ -72,8 +72,8 @@ namespace tensor
   inline void tensor_bad_shape()
   {
 #ifdef TENSOR_USE_CUDA
-    fprintf(stderr, "TensorView: all dimensions must be strictly positive.");
-    std::abort();
+    printf("TensorView: all dimensions must be strictly positive.");
+    assert(false);
 #else
     throw std::logic_error("TensorView: all dimensions must be strictly positive.");
 #endif
@@ -231,6 +231,19 @@ namespace tensor
         return compute_index(std::forward<Indices>(indices)...);
       }
 
+      TENSOR_FUNC index_t operator[](index_t index) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= len)
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
+          tensor_out_of_range(msg);
+        }
+#endif
+        return index;
+      }
+
       TENSOR_FUNC index_t size() const
       {
         return len;
@@ -262,7 +275,11 @@ namespace tensor
       {
 #ifdef TENSOR_DEBUG
         if (index < 0 || index >= _shape[Dim])
-          tensor_out_of_range();
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "Index %ld is out of range for dimension %ld with size %ld.", index, Dim, _shape[Dim]);
+          tensor_out_of_range(msg);
+        }
 #endif
         if constexpr (Dim + 1 < Rank)
           return index + _shape[Dim] * compute_index<Dim + 1>(std::forward<Indices>(indices)...);
@@ -274,8 +291,12 @@ namespace tensor
       TENSOR_FUNC auto compute_index(span x, Indices... indices) const
       {
 #ifdef TENSOR_DEBUG
-        if (x.begin < 0 || x.end >= _shape[Dim])
-          tensor_out_of_range();
+        if (x.begin < 0 || x.end > _shape[Dim])
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for dimension %ld with size %ld.", x.begin, x.end, Dim, _shape[Dim]);
+          tensor_out_of_range(msg);
+        }
 #endif
         if constexpr (Dim + 1 < Rank)
           return x + _shape[Dim] * compute_index<Dim + 1>(std::forward<Indices>(indices)...);
@@ -306,6 +327,19 @@ namespace tensor
         return compute_index<Shape...>(std::forward<Indices>(indices)...);
       }
 
+      TENSOR_FUNC index_t operator[](index_t index) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= len)
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
+          tensor_out_of_range(msg);
+        }
+#endif
+        return index;
+      }
+
       static constexpr index_t order()
       {
         return rank;
@@ -320,7 +354,11 @@ namespace tensor
       {
 #ifdef TENSOR_DEBUG
         if (d < 0 || d >= rank)
-          tensor_out_of_range();
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "shape index = %ld is out of range for tensor of rank %ld.", d, rank);
+          tensor_out_of_range(msg);
+        }
 #endif
         constexpr index_t _shape[] = {Shape...};
         return _shape[d];
@@ -335,7 +373,11 @@ namespace tensor
       {
 #ifdef TENSOR_DEBUG
         if (index < 0 || index >= N)
-          tensor_out_of_range();
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "Index %ld is out of range for dimension with size %ld.", index, N);
+          tensor_out_of_range(msg);
+        }
 #endif
         if constexpr (sizeof...(Indices) == 0)
           return index;
@@ -347,8 +389,12 @@ namespace tensor
       static TENSOR_FUNC auto compute_index(span x, Indices... indices)
       {
 #ifdef TENSOR_DEBUG
-        if (x.begin < 0 || x.end >= N)
-          tensor_out_of_range();
+        if (x.begin < 0 || x.end > N)
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for dimension with size %ld.", x.begin, x.end, N);
+          tensor_out_of_range(msg);
+        }
 #endif
         if constexpr (sizeof...(Indices) == 0)
           return x;
@@ -392,6 +438,19 @@ namespace tensor
         return compute_index(std::forward<Indices>(indices)...);
       }
 
+      TENSOR_FUNC index_t operator[](index_t index) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= len)
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
+          tensor_out_of_range(msg);
+        }
+#endif
+        return index * strides[0];
+      }
+
       TENSOR_FUNC index_t size() const
       {
         return len;
@@ -412,7 +471,11 @@ namespace tensor
       {
 #ifdef TENSOR_DEBUG
         if (index < 0 || index >= _shape[Dim])
-          tensor_out_of_range();
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "Index %ld is out of range for dimension %ld with size %ld.", index, Dim, _shape[Dim]);
+          tensor_out_of_range(msg);
+        }
 #endif
         if constexpr (Dim + 1 < Rank)
           return strides[Dim] * index + compute_index<Dim + 1>(std::forward<Indices>(indices)...);
@@ -424,8 +487,12 @@ namespace tensor
       TENSOR_FUNC auto compute_index(span x, Indices... indices) const
       {
 #ifdef TENSOR_DEBUG
-        if (x.begin < 0 || x.end >= _shape[Dim])
-          tensor_out_of_range();
+        if (x.begin < 0 || x.end > _shape[Dim])
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for dimension %ld with size %ld.", x.begin, x.end, Dim, _shape[Dim]);
+          tensor_out_of_range(msg);
+        }
 #endif
         if constexpr (Dim + 1 < Rank)
           return strides[Dim] * x + compute_index<Dim + 1>(std::forward<Indices>(indices)...);
@@ -458,7 +525,11 @@ namespace tensor
       {
 #ifdef TENSOR_DEBUG
         if (i < 0 || i >= len)
-          tensor_out_of_range();
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "Index = %ld is out of range for 1D tensor with size %ld.", i, len);
+          tensor_out_of_range(msg);
+        }
 #endif
         return stride * i;
       }
@@ -467,7 +538,11 @@ namespace tensor
       {
 #ifdef TENSOR_DEBUG
         if (x.begin < 0 || x.end >= len)
-          tensor_out_of_range();
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for 1D tensor with size %ld.", x.begin, x.end, len);
+          tensor_out_of_range(msg);
+        }
 #endif
         return stride * x;
       }
@@ -475,6 +550,19 @@ namespace tensor
       TENSOR_FUNC span operator()(all) const
       {
         return stride * span(0, len);
+      }
+
+      TENSOR_FUNC index_t operator[](index_t index) const
+      {
+#ifdef TENSOR_DEBUG
+        if (index < 0 || index >= len)
+        {
+          char msg[100];
+          snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
+          tensor_out_of_range(msg);
+        }
+#endif
+        return index * stride;
       }
 
       TENSOR_FUNC index_t size() const
@@ -536,6 +624,19 @@ namespace tensor
       pointer ptr;
     };
 
+    template <typename Container>
+    auto make_view(Container &container)
+    {
+      using value_type = typename Container::value_type;
+      return details::ViewContainer<value_type>(container.data());
+    }
+
+    template <typename Container>
+    auto make_view(const Container &container)
+    {
+      return details::ViewContainer<const typename Container::value_type>(container.data());
+    }
+
     template <typename Shape, typename Container>
     class __TensorType
     {
@@ -545,6 +646,128 @@ namespace tensor
       using const_reference = typename Container::const_reference;
       using pointer = typename Container::pointer;
       using const_pointer = typename Container::const_pointer;
+
+      template <typename ViewType>
+      class Iterator
+      {
+      public:
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type = typename Container::value_type;
+        using difference_type = std::ptrdiff_t;
+        using pointer = typename std::conditional<std::is_const<ViewType>::value, const value_type *, value_type *>::type;
+        using reference = typename std::conditional<std::is_const<ViewType>::value, const value_type &, value_type &>::type;
+
+        TENSOR_FUNC Iterator(Shape shape_, ViewType &&view_, index_t pos)
+            : _pos(pos), _shape(shape_), _view(view_) {}
+
+        TENSOR_FUNC reference operator*()
+        {
+          return _view[_shape[_pos]];
+        }
+
+        TENSOR_FUNC pointer operator->()
+        {
+          return &_view[_shape[_pos]];
+        }
+
+        TENSOR_FUNC reference operator[](difference_type n)
+        {
+          return _view[_shape[_pos + n]];
+        }
+
+        TENSOR_FUNC Iterator &operator++()
+        {
+          ++_pos;
+          return *this;
+        }
+
+        TENSOR_FUNC Iterator operator++(int)
+        {
+          iterator tmp = *this;
+          ++_pos;
+          return tmp;
+        }
+
+        TENSOR_FUNC Iterator &operator--()
+        {
+          --_pos;
+          return *this;
+        }
+
+        TENSOR_FUNC Iterator operator--(int)
+        {
+          iterator tmp = *this;
+          --_pos;
+          return tmp;
+        }
+
+        TENSOR_FUNC Iterator operator+(difference_type n) const
+        {
+          return iterator(_shape, _view, _pos + n);
+        }
+
+        TENSOR_FUNC Iterator operator-(difference_type n) const
+        {
+          return iterator(_shape, _view, _pos - n);
+        }
+
+        TENSOR_FUNC Iterator &operator+=(difference_type n)
+        {
+          _pos += n;
+          return *this;
+        }
+
+        TENSOR_FUNC Iterator &operator-=(difference_type n)
+        {
+          _pos -= n;
+          return *this;
+        }
+
+        TENSOR_FUNC difference_type operator-(const Iterator &other) const
+        {
+          return _pos - other._pos;
+        }
+
+        TENSOR_FUNC bool operator==(const Iterator &other) const
+        {
+          return _pos == other._pos;
+        }
+
+        TENSOR_FUNC bool operator!=(const Iterator &other) const
+        {
+          return _pos != other._pos;
+        }
+
+        TENSOR_FUNC bool operator<(const Iterator &other) const
+        {
+          return _pos < other._pos;
+        }
+
+        TENSOR_FUNC bool operator>(const Iterator &other) const
+        {
+          return _pos > other._pos;
+        }
+
+        TENSOR_FUNC bool operator<=(const Iterator &other) const
+        {
+          return _pos <= other._pos;
+        }
+
+        TENSOR_FUNC bool operator>=(const Iterator &other) const
+        {
+          return _pos >= other._pos;
+        }
+
+      private:
+        index_t _pos;
+        Shape _shape;
+        ViewType _view;
+      };
+
+      using iterator = Iterator<decltype(make_view(std::declval<Container &>()))>;
+      using const_iterator = Iterator<decltype(make_view(std::declval<const Container &>()))>;
+      using reverse_iterator = std::reverse_iterator<iterator>;
+      using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
       __TensorType() = default;
       ~__TensorType() = default;
@@ -629,69 +852,61 @@ namespace tensor
       /// @brief linear index access.
       TENSOR_FUNC reference operator[](index_t index)
       {
-#ifdef TENSOR_DEBUG
-        if (index < 0 || index >= _shape.size())
-          tensor_out_of_range();
-#endif
-        return container[index];
+        return container[_shape[index]];
       }
 
       /// @brief linear index access.
       TENSOR_FUNC const_reference operator[](index_t index) const
       {
-#ifdef TENSOR_DEBUG
-        if (index < 0 || index >= _shape.size())
-          tensor_out_of_range();
-#endif
-        return container[index];
-      }
-
-      /// @brief implicit conversion to scalar*
-      TENSOR_FUNC operator pointer()
-      {
-        return container.data();
-      }
-
-      /// @brief implicit conversion to scalar*
-      TENSOR_FUNC operator const_pointer() const
-      {
-        return container.data();
-      }
-
-      /// @brief returns the externally managed array
-      TENSOR_FUNC pointer data()
-      {
-        return container.data();
-      }
-
-      /// @brief returns the externally managed array
-      TENSOR_FUNC const_pointer data() const
-      {
-        return container.data();
+        return container[_shape[index]];
       }
 
       /// @brief returns pointer to start of tensor.
-      TENSOR_FUNC pointer begin()
+      TENSOR_FUNC iterator begin()
       {
-        return container.data();
+        return iterator(_shape, make_view<Container>(container), 0);
       }
 
       /// @brief returns pointer to start of tensor.
-      TENSOR_FUNC const_pointer begin() const
+      TENSOR_FUNC const_iterator begin() const
       {
-        return container.data();
+        return const_iterator(_shape, make_view<const Container>(container), 0);
       }
 
       /// @brief returns pointer to the element following the last element of tensor.
-      TENSOR_FUNC pointer end()
+      TENSOR_FUNC iterator end()
       {
-        return begin() + _shape.size();
+        return iterator(_shape, make_view<Container>(container), size());
       }
 
       /// @brief returns pointer to the element following the last element of tensor.
-      TENSOR_FUNC const_pointer end() const
+      TENSOR_FUNC const_iterator end() const
       {
-        return container.data() + _shape.size();
+        return const_iterator(_shape, make_view<const Container>(container), size());
+      }
+
+      /// @brief returns reverse iterator to the end of the tensor.
+      TENSOR_FUNC reverse_iterator rbegin()
+      {
+        return reverse_iterator(end());
+      }
+
+      /// @brief returns reverse iterator to the end of the tensor.
+      TENSOR_FUNC const_reverse_iterator rbegin() const
+      {
+        return const_reverse_iterator(end());
+      }
+
+      /// @brief returns reverse iterator to the start of the tensor.
+      TENSOR_FUNC reverse_iterator rend()
+      {
+        return reverse_iterator(begin());
+      }
+
+      /// @brief returns reverse iterator to the start of the tensor.
+      TENSOR_FUNC const_reverse_iterator rend() const
+      {
+        return const_reverse_iterator(begin());
       }
 
       /// @brief returns total number of elements in the tensor.
@@ -723,23 +938,23 @@ namespace tensor
       template <size_t N>
       TENSOR_FUNC auto subview(const std::array<span, N> &spans)
       {
-        return SubView<value_type, N>(data(), spans);
+        return SubView<value_type, N>(make_view(container), spans);
       }
 
       template <size_t N>
       TENSOR_FUNC auto subview(const std::array<span, N> &spans) const
       {
-        return SubView<const value_type, N>(data(), spans);
+        return SubView<const value_type, N>(make_view(container), spans);
       }
 
       TENSOR_FUNC auto subview(const span &s)
       {
-        return SubView<value_type, 1>(data(), s);
+        return SubView<value_type, 1>(make_view(container), s);
       }
 
       TENSOR_FUNC auto subview(const span &s) const
       {
-        return SubView<const value_type, 1>(data(), s);
+        return SubView<const value_type, 1>(make_view(container), s);
       }
     };
   }; // namespace details
@@ -752,21 +967,47 @@ namespace tensor
   class TensorView : public details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>
   {
   public:
+    using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>;
+    using shape_type = details::DynamicTensorShape<Rank>;
+    using container_type = details::ViewContainer<scalar>;
+    using pointer = typename base_tensor::pointer;
+    using const_pointer = typename base_tensor::const_pointer;
+
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
 
     TENSOR_FUNC TensorView() : base_tensor(shape_type(), container_type(nullptr)) {}
 
     template <TENSOR_INT_LIKE... Sizes>
-    TENSOR_FUNC void reshape(Sizes... new_shape)
+    TENSOR_FUNC TensorView &reshape(Sizes... new_shape)
     {
       this->_shape.reshape(std::forward<Sizes>(new_shape)...);
+      return *this;
     }
 
-  private:
-    using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, details::ViewContainer<scalar>>;
-    using shape_type = details::DynamicTensorShape<Rank>;
-    using container_type = details::ViewContainer<scalar>;
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator pointer()
+    {
+      return this->container.data();
+    }
+
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator const_pointer() const
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC pointer data()
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC const_pointer data() const
+    {
+      return this->container.data();
+    }
   };
 
   /// @brief high dimensional view for tensors with dimensions known at compile time.
@@ -776,12 +1017,37 @@ namespace tensor
   class FixedTensorView : public details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>
   {
   public:
-    TENSOR_FUNC explicit FixedTensorView(scalar *data) : base_tensor(shape_type{}, container_type(data)) {}
-
-  private:
     using base_tensor = details::__TensorType<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>;
     using shape_type = details::FixedTensorShape<Shape...>;
     using container_type = details::ViewContainer<scalar>;
+    using pointer = typename base_tensor::pointer;
+    using const_pointer = typename base_tensor::const_pointer;
+
+    TENSOR_FUNC explicit FixedTensorView(scalar *data) : base_tensor(shape_type{}, container_type(data)) {}
+
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator pointer()
+    {
+      return this->container.data();
+    }
+
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator const_pointer() const
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC pointer data()
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC const_pointer data() const
+    {
+      return this->container.data();
+    }
   };
 
   /// @brief high dimensional sub-view into tensors
@@ -791,7 +1057,7 @@ namespace tensor
   class SubView : public details::__TensorType<details::StridedShape<Rank>, details::ViewContainer<scalar>>
   {
   public:
-    TENSOR_FUNC explicit SubView(scalar *data, const std::array<span, Rank> &spans) : base_tensor(shape_type(spans), container_type(data + details::offset(spans))) {}
+    TENSOR_FUNC explicit SubView(details::ViewContainer<scalar> view, const std::array<span, Rank> &spans) : base_tensor(shape_type(spans), container_type(view.data() + details::offset(spans))) {}
 
   private:
     using base_tensor = details::__TensorType<details::StridedShape<Rank>, details::ViewContainer<scalar>>;
@@ -803,7 +1069,7 @@ namespace tensor
   class SubView<scalar, 1> : public details::__TensorType<details::StridedShape<1>, details::ViewContainer<scalar>>
   {
   public:
-    TENSOR_FUNC explicit SubView(scalar *data, const span &s) : base_tensor(shape_type(s), container_type(data + s.begin)) {}
+    TENSOR_FUNC explicit SubView(details::ViewContainer<scalar> view, const span &s) : base_tensor(shape_type(s), container_type(view.data() + s.begin)) {}
 
   private:
     using base_tensor = details::__TensorType<details::StridedShape<1>, details::ViewContainer<scalar>>;
@@ -819,8 +1085,39 @@ namespace tensor
   /// @tparam scalar type of tensor elements
   /// @tparam ...Shape shape of the tensor
   template <typename scalar, size_t... Shape>
-  class FixedTensor : public details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, sizeof...(Shape)>>
+  class FixedTensor : public details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, (1 * ... * Shape)>>
   {
+  public:
+    using base_tensor = details::__TensorType<details::FixedTensorShape<Shape...>, std::array<scalar, (1 * ... * Shape)>>;
+    using pointer = typename base_tensor::pointer;
+    using const_pointer = typename base_tensor::const_pointer;
+
+    TENSOR_FUNC FixedTensor()
+        : base_tensor(details::FixedTensorShape<Shape...>(), std::array<scalar, (1 * ... * Shape)>{scalar()}) {}
+
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator pointer()
+    {
+      return this->container.data();
+    }
+
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator const_pointer() const
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC pointer data()
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC const_pointer data() const
+    {
+      return this->container.data();
+    }
   };
 
   /// @brief tensor type which manages its own memory (dynamically)
@@ -837,22 +1134,50 @@ namespace tensor
   class Tensor : public details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>
   {
   public:
+    using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>;
+    using shape_type = details::DynamicTensorShape<Rank>;
+    using container_type = std::vector<scalar, Allocator>;
+
+    using pointer = typename base_tensor::pointer;
+    using const_pointer = typename base_tensor::const_pointer;
+
     template <TENSOR_INT_LIKE... Sizes>
     inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type((1 * ... * shape))) {}
 
     inline Tensor() : base_tensor(shape_type(), container_type(0)) {}
 
     template <TENSOR_INT_LIKE... Sizes>
-    TENSOR_FUNC void reshape(Sizes... new_shape)
+    TENSOR_FUNC Tensor &reshape(Sizes... new_shape)
     {
       this->_shape.reshape(std::forward<Sizes>(new_shape)...);
       this->container.resize(this->_shape.size());
+
+      return *this;
     }
 
-  private:
-    using base_tensor = details::__TensorType<details::DynamicTensorShape<Rank>, std::vector<scalar, Allocator>>;
-    using shape_type = details::DynamicTensorShape<Rank>;
-    using container_type = std::vector<scalar, Allocator>;
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator pointer()
+    {
+      return this->container.data();
+    }
+
+    /// @brief implicit conversion to scalar*
+    TENSOR_FUNC operator const_pointer() const
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC pointer data()
+    {
+      return this->container.data();
+    }
+
+    /// @brief returns the externally managed array
+    TENSOR_FUNC const_pointer data() const
+    {
+      return this->container.data();
+    }
   };
 
   /// @brief returns a Tensor of the specified shape.

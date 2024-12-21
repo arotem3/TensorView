@@ -49,3 +49,16 @@ install(TARGETS tensor_view EXPORT tensor_view_config)
 export(EXPORT tensor_view_config
   NAMESPACE tensor_view::
   FILE tensor_view_config.cmake)
+
+enable_testing()
+
+file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp")
+
+foreach(test_file ${TEST_FILES})
+  get_filename_component(test_name ${test_file} NAME_WE)
+  add_executable(${test_name} ${test_file})
+  set_target_properties(${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test)
+  target_link_libraries(${test_name} tensor_view)
+  target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+  add_test(NAME ${test_name} COMMAND ${test_name})
+endforeach()
