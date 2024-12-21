@@ -29,6 +29,7 @@ option(TENSOR_DEBUG "Enables bound checks for indexing into TensorView objects."
 
 add_library(tensor_view INTERFACE)
 target_sources(tensor_view INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp)
+target_include_directories(tensor_view INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/TensorView)
 
 message("build = ${CMAKE_BUILD_TYPE}")
 string(TOLOWER ${CMAKE_BUILD_TYPE} build_type)
@@ -46,6 +47,8 @@ if (TENSOR_ALWAYS_MUTABLE)
 endif()
 
 install(TARGETS tensor_view EXPORT tensor_view_config)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/TensorView DESTINATION include)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp DESTINATION include)
 export(EXPORT tensor_view_config
   NAMESPACE tensor_view::
   FILE tensor_view_config.cmake)
