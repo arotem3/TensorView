@@ -28,113 +28,166 @@ namespace tensor::details
     {
     public:
       using iterator_category = std::random_access_iterator_tag;
-      using value_type = typename Container::value_type;
+      using value_type = typename ViewType::value_type;
       using difference_type = std::ptrdiff_t;
-      using pointer = typename std::conditional<std::is_const<ViewType>::value, const value_type *, value_type *>::type;
-      using reference = typename std::conditional<std::is_const<ViewType>::value, const value_type &, value_type &>::type;
+      using pointer = value_type *;
+      using reference = value_type &;
+
+      // sentinel
+      TENSOR_FUNC Iterator()
+        : initialized(false), _pos(0) {}
 
       TENSOR_FUNC Iterator(Shape shape_, ViewType &&view_, index_t pos)
-          : _pos(pos), _shape(shape_), _view(view_) {}
+          : initialized(true), _pos(pos), _shape(shape_), _view(view_) {}
 
       TENSOR_FUNC reference operator*()
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         return _view[_shape[_pos]];
       }
 
       TENSOR_FUNC pointer operator->()
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         return &_view[_shape[_pos]];
       }
 
       TENSOR_FUNC reference operator[](difference_type n)
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         return _view[_shape[_pos + n]];
       }
 
       TENSOR_FUNC Iterator &operator++()
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         ++_pos;
         return *this;
       }
 
       TENSOR_FUNC Iterator operator++(int)
       {
-        iterator tmp = *this;
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
+        Iterator tmp = *this;
         ++_pos;
         return tmp;
       }
 
       TENSOR_FUNC Iterator &operator--()
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         --_pos;
         return *this;
       }
 
       TENSOR_FUNC Iterator operator--(int)
       {
-        iterator tmp = *this;
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
+        Iterator tmp = *this;
         --_pos;
         return tmp;
       }
 
       TENSOR_FUNC Iterator operator+(difference_type n) const
       {
-        return iterator(_shape, _view, _pos + n);
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
+        return Iterator(_shape, _view, _pos + n);
       }
 
       TENSOR_FUNC Iterator operator-(difference_type n) const
       {
-        return iterator(_shape, _view, _pos - n);
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
+        return Iterator(_shape, _view, _pos - n);
       }
 
       TENSOR_FUNC Iterator &operator+=(difference_type n)
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         _pos += n;
         return *this;
       }
 
       TENSOR_FUNC Iterator &operator-=(difference_type n)
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized)
+          tensor_bad_memory_access();
+#endif
         _pos -= n;
         return *this;
       }
 
       TENSOR_FUNC difference_type operator-(const Iterator &other) const
       {
+#ifdef TENSOR_DEBUG
+        if (!initialized || !other.initialized)
+          tensor_bad_memory_access();
+#endif
         return _pos - other._pos;
       }
 
       TENSOR_FUNC bool operator==(const Iterator &other) const
       {
-        return _pos == other._pos;
+        return initialized && other.initialized && (_pos == other._pos);
       }
 
       TENSOR_FUNC bool operator!=(const Iterator &other) const
       {
-        return _pos != other._pos;
+        return (not initialized) or (not other.initialized) or (_pos != other._pos);
       }
 
       TENSOR_FUNC bool operator<(const Iterator &other) const
       {
-        return _pos < other._pos;
+        return (!initialized || (other.initialized && _pos < other._pos));
       }
 
       TENSOR_FUNC bool operator>(const Iterator &other) const
       {
-        return _pos > other._pos;
+        return !other.initialized || (initialized && _pos > other._pos);
       }
 
       TENSOR_FUNC bool operator<=(const Iterator &other) const
       {
-        return _pos <= other._pos;
+        return (!initialized || (other.initialized && _pos <= other._pos));
       }
 
       TENSOR_FUNC bool operator>=(const Iterator &other) const
       {
-        return _pos >= other._pos;
+        return !other.initialized || (initialized && _pos >= other._pos);
       }
 
     private:
+      bool initialized;
       index_t _pos;
       Shape _shape;
       ViewType _view;
