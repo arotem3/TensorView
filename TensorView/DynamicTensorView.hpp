@@ -8,6 +8,8 @@
 
 namespace tensor
 {
+  template <typename scalar, size_t Rank, typename Allocator> class Tensor;
+
   /// @brief provides read/write access to an externally managed array with
   /// high dimensional indexing.
   /// @tparam scalar the type of array, e.g. double, int, etc.
@@ -26,6 +28,24 @@ namespace tensor
     TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
 
     TENSOR_FUNC TensorView() : base_tensor(shape_type(), container_type(nullptr)) {}
+    
+    /// @brief construct a TensorView from a const Tensor 
+    template <typename T, typename Allocator>
+    requires(std::is_convertible_v<const T*, scalar*> && std::is_const_v<scalar>)
+    TENSOR_FUNC TensorView(const Tensor<T, Rank, Allocator> &tensor)
+      : base_tensor(tensor._shape, container_type(tensor.data())) {}
+
+    /// @brief construct a TensorView from a non-const Tensor
+    template <typename T, typename Allocator>
+    requires(std::is_convertible_v<T*, scalar*>)
+    TENSOR_FUNC TensorView(Tensor<T, Rank, Allocator> &tensor)
+      : base_tensor(tensor._shape, container_type(tensor.data())) {}
+
+    template <typename T, typename Allocator>
+    TensorView(Tensor<T, Rank, Allocator>&&) = delete; // prevent dangling reference
+    
+    template <typename T, typename Allocator>
+    TensorView(const Tensor<T, Rank, Allocator>&&) = delete; // prevent dangling reference
 
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC TensorView &reshape(Sizes... new_shape)
@@ -57,6 +77,9 @@ namespace tensor
     {
       return this->container.data();
     }
+  
+  private:
+    template <typename T, size_t R, typename Allocator> friend class Tensor;
   };
 
 } // namespace tensor

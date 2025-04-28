@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <array>
 #include <vector>
+#include <concepts>
 
 #ifdef TENSOR_USE_CUDA
 #include <cuda.h>
@@ -26,13 +27,6 @@
 #define TENSOR_CONSTEXPR constexpr
 #endif
 
-#if __cplusplus >= 202002L
-#include <concepts>
-#define TENSOR_INT_LIKE std::convertible_to<int>
-#else
-#define TENSOR_INT_LIKE typename
-#endif
-
 #define TENSOR_FUNC TENSOR_HOST_DEVICE TENSOR_CONSTEXPR inline
 
 namespace tensor
@@ -45,5 +39,7 @@ namespace tensor
   using index_t = unsigned long;
 #endif
 }
+
+#define TENSOR_INT_LIKE std::convertible_to<index_t> // concept for index-like types
 
 #endif

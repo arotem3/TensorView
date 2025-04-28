@@ -6,6 +6,8 @@
 
 namespace tensor
 {
+  template <typename scalar, size_t Rank> class TensorView;
+
   /// @brief tensor type which manages its own memory (dynamically)
   ///
   /// @details Unlike the view type, this type dynamically allocates memory. For
@@ -64,6 +66,20 @@ namespace tensor
     {
       return this->container.data();
     }
+  
+    /// @brief cast to TensorView
+    TENSOR_FUNC operator TensorView<scalar, Rank>()
+    {
+      return TensorView<scalar, Rank>(*this);
+    }
+
+    TENSOR_FUNC operator TensorView<const scalar, Rank>() const
+    {
+      return TensorView<const scalar, Rank>(*this);
+    }
+
+  private:
+    template <typename T, size_t R> friend class TensorView;
   };
 
   /// @brief returns a Tensor of the specified shape.

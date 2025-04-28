@@ -20,6 +20,16 @@ int main()
   std::cout << "Initializing FixedTensor object..." << std::endl;
   FixedTensor<double, 2, 3> fixed_tensor;
 
+  std::cout << "Implicit conversion from Tensor to TensorView..." << std::endl;
+  Tensor<float, 2> t;
+  TensorView<float, 2> view1(t);         // OK
+  TensorView<const float, 2> view2(t);   // OK
+
+  const Tensor<float, 2> ct;
+  TensorView<const float, 2> view3(ct);  // OK
+  // TensorView<float, 2> view4(ct);     // Error: ct is const
+  // TensorView<float, 2> view_to_temp(Tensor<float, 2>{}); // Error: dangling reference
+
   std::cout << "Initialization test passed!" << std::endl;
   return 0;
 }
