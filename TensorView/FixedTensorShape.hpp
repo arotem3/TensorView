@@ -23,7 +23,7 @@ namespace tensor::details
     TENSOR_FUNC index_t operator[](index_t index) const
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= len)
+      if (index >= len)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
@@ -46,7 +46,7 @@ namespace tensor::details
     static TENSOR_FUNC index_t shape(index_t d)
     {
 #ifdef TENSOR_DEBUG
-      if (d < 0 || d >= rank)
+      if (d >= rank)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "shape index = %ld is out of range for tensor of rank %ld.", d, rank);
@@ -65,7 +65,7 @@ namespace tensor::details
     static TENSOR_FUNC auto compute_index(index_t index, Indices... indices)
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= N)
+      if (index >= N)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "Index %ld is out of range for dimension with size %ld.", index, N);
@@ -82,7 +82,7 @@ namespace tensor::details
     static TENSOR_FUNC auto compute_index(span x, Indices... indices)
     {
 #ifdef TENSOR_DEBUG
-      if (x.begin < 0 || x.end > N)
+      if (x.end > N)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for dimension with size %ld.", x.begin, x.end, N);

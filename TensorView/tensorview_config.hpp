@@ -31,13 +31,7 @@
 
 namespace tensor
 {
-#ifdef TENSOR_USE_CUDA
-  /// @brief type for indexing into tensor views. In cuda, unsigned integers are generally preferred.
-  using index_t = int;
-#else
-  /// @brief type for indexing into tensor views.
   using index_t = unsigned long;
-#endif
 }
 
 #define TENSOR_INT_LIKE std::convertible_to<index_t> // concept for index-like types

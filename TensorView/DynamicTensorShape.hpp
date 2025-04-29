@@ -15,11 +15,19 @@ namespace tensor::details
     TENSOR_FUNC DynamicTensorShape(Shape... shape_) : len((1 * ... * shape_)), _shape{(index_t)shape_...}
     {
       static_assert(Rank > 0, "DynamicTensorShape must have a non-zero rank");
-      static_assert(sizeof...(shape_) == Rank, "wrong number of dimensions specified for DynamicTensorShape.");
+      static_assert(sizeof...(shape_) > 0, "DynamicTensorShape must have at least one dimension"); // This should never happen, the default constructor exists...
+      static_assert(sizeof...(shape_) <= Rank, "Too many dimensions specified for DynamicTensorShape.");
 #ifdef TENSOR_DEBUG
       if (((shape_ <= 0) || ... || false))
         tensor_bad_shape();
 #endif
+
+      // fill in the rest of the shape with 1s
+      if constexpr (sizeof...(shape_) < Rank)
+      {
+        for (size_t i = sizeof...(shape_); i < Rank; ++i)
+          _shape[i] = 1;
+      }
     }
 
     TENSOR_FUNC DynamicTensorShape() : len{0}, _shape{} {}
@@ -39,7 +47,7 @@ namespace tensor::details
     TENSOR_FUNC index_t operator[](index_t index) const
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= len)
+      if (index >= len)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
@@ -62,13 +70,20 @@ namespace tensor::details
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC void reshape(Sizes... new_shape)
     {
-      static_assert(sizeof...(Sizes) == Rank, "wrong number of dimensions.");
+      static_assert(sizeof...(Sizes) <= Rank, "too many dimensions specified in reshape.");
 #ifdef TENSOR_DEBUG
       if (((new_shape <= 0) || ... || false))
         tensor_bad_shape();
 #endif
       _shape = {(index_t)new_shape...};
       len = (1 * ... * new_shape);
+
+      // fill in the rest of the shape with 1s
+      if constexpr (sizeof...(Sizes) < Rank)
+      {
+        for (size_t i = sizeof...(Sizes); i < Rank; ++i)
+          _shape[i] = 1;
+      }
     }
 
   private:
@@ -79,7 +94,7 @@ namespace tensor::details
     TENSOR_FUNC auto compute_index(index_t index, Indices... indices) const
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= _shape[Dim])
+      if (index >= _shape[Dim])
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "Index %ld is out of range for dimension %ld with size %ld.", index, Dim, _shape[Dim]);
@@ -96,7 +111,7 @@ namespace tensor::details
     TENSOR_FUNC auto compute_index(span x, Indices... indices) const
     {
 #ifdef TENSOR_DEBUG
-      if (x.begin < 0 || x.end > _shape[Dim])
+      if (x.end > _shape[Dim])
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for dimension %ld with size %ld.", x.begin, x.end, Dim, _shape[Dim]);

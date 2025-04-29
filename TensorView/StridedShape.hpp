@@ -36,7 +36,7 @@ namespace tensor::details
     TENSOR_FUNC index_t operator[](index_t index) const
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= len)
+      if (index >= len)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);
@@ -65,7 +65,7 @@ namespace tensor::details
     TENSOR_FUNC auto compute_index(index_t index, Indices... indices) const
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= _shape[Dim])
+      if (index >= _shape[Dim])
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "Index %ld is out of range for dimension %ld with size %ld.", index, Dim, _shape[Dim]);
@@ -82,7 +82,7 @@ namespace tensor::details
     TENSOR_FUNC auto compute_index(span x, Indices... indices) const
     {
 #ifdef TENSOR_DEBUG
-      if (x.begin < 0 || x.end > _shape[Dim])
+      if (x.end > _shape[Dim])
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for dimension %ld with size %ld.", x.begin, x.end, Dim, _shape[Dim]);
@@ -119,7 +119,7 @@ namespace tensor::details
     TENSOR_FUNC index_t operator()(index_t i) const
     {
 #ifdef TENSOR_DEBUG
-      if (i < 0 || i >= len)
+      if (i >= len)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "Index = %ld is out of range for 1D tensor with size %ld.", i, len);
@@ -132,7 +132,7 @@ namespace tensor::details
     TENSOR_FUNC span operator()(span x) const
     {
 #ifdef TENSOR_DEBUG
-      if (x.begin < 0 || x.end >= len)
+      if (x.end >= len)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "span( %ld, %ld ) is out of range for 1D tensor with size %ld.", x.begin, x.end, len);
@@ -150,7 +150,7 @@ namespace tensor::details
     TENSOR_FUNC index_t operator[](index_t index) const
     {
 #ifdef TENSOR_DEBUG
-      if (index < 0 || index >= len)
+      if (index >= len)
       {
         char msg[100];
         snprintf(msg, sizeof(msg), "linear index = %ld is out of range for tensor with size %ld.", index, len);

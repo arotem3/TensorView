@@ -8,7 +8,8 @@
 
 namespace tensor
 {
-  template <typename scalar, size_t Rank, typename Allocator> class Tensor;
+  template <typename scalar, size_t Rank, typename Allocator>
+  class Tensor;
 
   /// @brief provides read/write access to an externally managed array with
   /// high dimensional indexing.
@@ -28,24 +29,89 @@ namespace tensor
     TENSOR_FUNC explicit TensorView(scalar *data, Sizes... shape) : base_tensor(shape_type(shape...), container_type(data)) {}
 
     TENSOR_FUNC TensorView() : base_tensor(shape_type(), container_type(nullptr)) {}
-    
-    /// @brief construct a TensorView from a const Tensor 
-    template <typename T, typename Allocator>
-    requires(std::is_convertible_v<const T*, scalar*> && std::is_const_v<scalar>)
-    TENSOR_FUNC TensorView(const Tensor<T, Rank, Allocator> &tensor)
-      : base_tensor(tensor._shape, container_type(tensor.data())) {}
 
-    /// @brief construct a TensorView from a non-const Tensor
-    template <typename T, typename Allocator>
-    requires(std::is_convertible_v<T*, scalar*>)
-    TENSOR_FUNC TensorView(Tensor<T, Rank, Allocator> &tensor)
-      : base_tensor(tensor._shape, container_type(tensor.data())) {}
+    /// @brief construct a TensorView from another TensorView
+    template <typename T, size_t R>
+      requires(R == Rank)
+    TENSOR_FUNC TensorView(const TensorView<T, R> &tensor)
+        : base_tensor(tensor._shape, container_type(tensor.data()))
+    {
+    }
 
-    template <typename T, typename Allocator>
-    TensorView(Tensor<T, Rank, Allocator>&&) = delete; // prevent dangling reference
-    
-    template <typename T, typename Allocator>
-    TensorView(const Tensor<T, Rank, Allocator>&&) = delete; // prevent dangling reference
+    template <typename T, size_t R>
+      requires(R == Rank)
+    TENSOR_FUNC TensorView(TensorView<T, R> &&tensor)
+        : base_tensor(tensor._shape, container_type(tensor.data()))
+    {
+    }
+
+    template <typename T, size_t R>
+      requires(R == Rank)
+    TENSOR_FUNC TensorView(TensorView<T, R> &tensor)
+        : base_tensor(tensor._shape, container_type(tensor.data()))
+    {
+    }
+
+    /// @brief assign a TensorView to another TensorView
+    template <typename T, size_t R>
+      requires(R == Rank)
+    TENSOR_FUNC TensorView &operator=(const TensorView<T, R> &tensor)
+    {
+      this->container = tensor.data();
+      this->_shape = tensor._shape;
+      return *this;
+    }
+
+    template <typename T, size_t R>
+      requires(R == Rank)
+    TENSOR_FUNC TensorView &operator=(TensorView<T, R> &&tensor)
+    {
+      this->container = tensor.data();
+      this->_shape = tensor._shape;
+      return *this;
+    }
+
+    template <typename T, size_t R>
+      requires(R == Rank)
+    TENSOR_FUNC TensorView &operator=(TensorView<T, R> &tensor)
+    {
+      this->container = tensor.data();
+      this->_shape = tensor._shape;
+      return *this;
+    }
+
+    /**
+     * @brief construct a TensorView from any tensor-like object.
+     *
+     * @details Caveat: the order of the other tensor must be less than or equal to the order of the TensorView.
+     */
+    template <typename TensorType>
+    TENSOR_FUNC TensorView(TensorType &tensor) : base_tensor(shape_type(), container_type(tensor.data()))
+    {
+      constexpr size_t other_rank = TensorType::order();
+      match_shape(tensor, std::make_index_sequence<other_rank>{});
+    }
+
+    template <typename TensorType>
+    TensorView(TensorType &&tensor) = delete; // avoids dangling references
+
+    /**
+     * @brief construct a TensorView from any tensor-like object.
+     *
+     * @details Caveat: the order of the other tensor must be less than or equal to the order of the TensorView.
+     */
+    template <typename TensorType>
+    TENSOR_FUNC TensorView &operator=(TensorType &tensor)
+    {
+      constexpr size_t other_rank = TensorType::order();
+      match_shape(tensor, std::make_index_sequence<other_rank>{});
+      this->container = wrap_view(tensor.data());
+
+      return *this;
+    }
+
+    template <typename TensorType>
+    TensorView &operator=(TensorType &&tensor) = delete; // avoids dangling references
 
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC TensorView &reshape(Sizes... new_shape)
@@ -77,9 +143,19 @@ namespace tensor
     {
       return this->container.data();
     }
-  
+
   private:
-    template <typename T, size_t R, typename Allocator> friend class Tensor;
+    template <typename T, size_t R, typename Allocator>
+    friend class Tensor;
+
+    template <typename T, size_t R>
+    friend class TensorView;
+
+    template <typename TensorType, size_t... I>
+    TENSOR_FUNC void match_shape(TensorType &tensor, std::index_sequence<I...>)
+    {
+      this->_shape.reshape(tensor.shape(I)...);
+    }
   };
 
 } // namespace tensor

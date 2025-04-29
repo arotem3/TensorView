@@ -9,72 +9,48 @@
 
 namespace tensor
 {
-  /// @brief wraps an array in a `TensorView`. Same as declaring a new
-  /// `TensorView< sizeof...(Sizes), scalar >( data, shape... ).`
-  /// @tparam scalar type of array
-  /// @tparam ...Sizes sequence of `index_t`
-  /// @param[in] data the array
-  /// @param[in] ...shape the shape of the tensor
+  /**
+   * @brief wraps an array in a `TensorView`. Same as declaring a new
+   * `TensorView< sizeof...(Sizes), scalar >( data, shape... ).`
+   * @tparam scalar type of array
+   * @tparam ...Sizes sequence of `index_t`
+   * @param[in] data the array
+   * @param[in] ...shape the shape of the tensor
+   * @return a `TensorView` of the array
+   */
   template <typename scalar, TENSOR_INT_LIKE... Sizes>
   TENSOR_FUNC auto reshape(scalar *data, Sizes... shape)
   {
     return TensorView<scalar, sizeof...(Sizes)>(data, shape...);
   }
 
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const TensorView<scalar, Rank> &tensor, Sizes... shape)
+  /**
+   * @brief creates a view of any tensor-like object with new shape.
+   * @tparam TensorType type of the tensor
+   * @tparam ...Sizes sequence of `index_t`
+   * @param[in] tensor the tensor
+   * @param[in] ...shape the shape of the tensor
+   * @return a `TensorView` of the tensor
+   */
+  template <typename TensorType, TENSOR_INT_LIKE... Sizes>
+  TENSOR_FUNC auto reshape(TensorType &tensor, Sizes... shape)
   {
     return reshape(tensor.data(), std::forward<Sizes>(shape)...);
   }
 
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(TensorView<scalar, Rank> &tensor, Sizes... shape)
+  /**
+   * @brief creates a view of any tensor-like object preserving the shape.
+   * @tparam TensorType type of the tensor
+   * @param[in] tensor the tensor
+   * @return a `TensorView` of the tensor
+   */
+  template <typename TensorType>
+  inline auto make_view(TensorType &tensor)
   {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
-  }
-
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(FixedTensorView<scalar, Shape...> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
-  }
-
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const FixedTensorView<scalar, Shape...> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
-  }
-
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(FixedTensor<scalar, Shape...> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
-  }
-
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t... Shape, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const FixedTensor<scalar, Shape...> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
-  }
-
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(const Tensor<scalar, Rank> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
-  }
-
-  /// @brief Returns new TensorView with new shape but points to same data.
-  template <typename scalar, size_t Rank, TENSOR_INT_LIKE... Sizes>
-  TENSOR_FUNC auto reshape(Tensor<scalar, Rank> &tensor, Sizes... shape)
-  {
-    return reshape(tensor.data(), std::forward<Sizes>(shape)...);
+    constexpr size_t order = TensorType::order();
+    using value_type = typename TensorType::value_type;
+    using view_value_type = std::conditional_t<std::is_const_v<TensorType>, const value_type, value_type>;
+    return TensorView<view_value_type, order>(tensor);
   }
 } // namespace tensor
 

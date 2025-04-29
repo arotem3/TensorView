@@ -23,6 +23,9 @@ namespace tensor::details
     using pointer = typename Container::pointer;
     using const_pointer = typename Container::const_pointer;
 
+    using shape_type = Shape;
+    using container_type = Container;
+
     template <typename ViewType>
     class Iterator
     {
@@ -35,7 +38,7 @@ namespace tensor::details
 
       // sentinel
       TENSOR_FUNC Iterator()
-        : initialized(false), _pos(0) {}
+          : initialized(false), _pos(0) {}
 
       TENSOR_FUNC Iterator(Shape shape_, ViewType &&view_, index_t pos)
           : initialized(true), _pos(pos), _shape(shape_), _view(view_) {}
@@ -193,8 +196,8 @@ namespace tensor::details
       ViewType _view;
     };
 
-    using iterator = Iterator<decltype(make_view(std::declval<Container &>()))>;
-    using const_iterator = Iterator<decltype(make_view(std::declval<const Container &>()))>;
+    using iterator = Iterator<decltype(wrap_view(std::declval<Container &>()))>;
+    using const_iterator = Iterator<decltype(wrap_view(std::declval<const Container &>()))>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -293,25 +296,25 @@ namespace tensor::details
     /// @brief returns pointer to start of tensor.
     TENSOR_FUNC iterator begin()
     {
-      return iterator(_shape, make_view<Container>(container), 0);
+      return iterator(_shape, wrap_view<Container>(container), 0);
     }
 
     /// @brief returns pointer to start of tensor.
     TENSOR_FUNC const_iterator begin() const
     {
-      return const_iterator(_shape, make_view<const Container>(container), 0);
+      return const_iterator(_shape, wrap_view<const Container>(container), 0);
     }
 
     /// @brief returns pointer to the element following the last element of tensor.
     TENSOR_FUNC iterator end()
     {
-      return iterator(_shape, make_view<Container>(container), size());
+      return iterator(_shape, wrap_view<Container>(container), size());
     }
 
     /// @brief returns pointer to the element following the last element of tensor.
     TENSOR_FUNC const_iterator end() const
     {
-      return const_iterator(_shape, make_view<const Container>(container), size());
+      return const_iterator(_shape, wrap_view<const Container>(container), size());
     }
 
     /// @brief returns reverse iterator to the end of the tensor.
@@ -367,23 +370,23 @@ namespace tensor::details
     template <size_t N>
     TENSOR_FUNC auto subview(const std::array<span, N> &spans)
     {
-      return SubView<value_type, N>(make_view(container), spans);
+      return SubView<value_type, N>(wrap_view(container), spans);
     }
 
     template <size_t N>
     TENSOR_FUNC auto subview(const std::array<span, N> &spans) const
     {
-      return SubView<const value_type, N>(make_view(container), spans);
+      return SubView<const value_type, N>(wrap_view(container), spans);
     }
 
     TENSOR_FUNC auto subview(const span &s)
     {
-      return SubView<value_type, 1>(make_view(container), s);
+      return SubView<value_type, 1>(wrap_view(container), s);
     }
 
     TENSOR_FUNC auto subview(const span &s) const
     {
-      return SubView<const value_type, 1>(make_view(container), s);
+      return SubView<const value_type, 1>(wrap_view(container), s);
     }
   };
 

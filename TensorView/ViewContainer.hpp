@@ -52,14 +52,14 @@ namespace tensor::details
   };
 
   template <typename Container>
-  auto make_view(Container &container)
+  auto wrap_view(Container &container)
   {
     using value_type = typename Container::value_type;
     return details::ViewContainer<value_type>(container.data());
   }
 
   template <typename Container>
-  auto make_view(const Container &container)
+  auto wrap_view(const Container &container)
   {
     return details::ViewContainer<const typename Container::value_type>(container.data());
   }

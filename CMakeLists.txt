@@ -46,6 +46,8 @@ if (TENSOR_ALWAYS_MUTABLE)
   target_compile_definitions(tensor_view INTERFACE TENSOR_ALWAYS_MUTABLE)
 endif()
 
+target_compile_options(tensor_view INTERFACE -Wall -Wextra)
+
 install(TARGETS tensor_view EXPORT tensor_view_config)
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/TensorView DESTINATION include)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp DESTINATION include)
