@@ -18,7 +18,7 @@ namespace tensor::details
       static_assert(sizeof...(shape_) > 0, "DynamicTensorShape must have at least one dimension"); // This should never happen, the default constructor exists...
       static_assert(sizeof...(shape_) <= Rank, "Too many dimensions specified for DynamicTensorShape.");
 #ifdef TENSOR_DEBUG
-      if (((shape_ <= 0) || ... || false))
+      if (((shape_ < 0) || ... || false))
         tensor_bad_shape();
 #endif
 
@@ -72,7 +72,7 @@ namespace tensor::details
     {
       static_assert(sizeof...(Sizes) <= Rank, "too many dimensions specified in reshape.");
 #ifdef TENSOR_DEBUG
-      if (((new_shape <= 0) || ... || false))
+      if (((new_shape < 0) || ... || false))
         tensor_bad_shape();
 #endif
       _shape = {(index_t)new_shape...};
