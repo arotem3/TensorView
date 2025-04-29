@@ -6,7 +6,8 @@
 
 namespace tensor
 {
-  template <typename scalar, size_t Rank> class TensorView;
+  template <typename scalar, size_t Rank>
+  class TensorView;
 
   /// @brief tensor type which manages its own memory (dynamically)
   ///
@@ -66,7 +67,7 @@ namespace tensor
     {
       return this->container.data();
     }
-  
+
     /// @brief cast to TensorView
     TENSOR_FUNC operator TensorView<scalar, Rank>()
     {
@@ -79,7 +80,8 @@ namespace tensor
     }
 
   private:
-    template <typename T, size_t R> friend class TensorView;
+    template <typename T, size_t R>
+    friend class TensorView;
   };
 
   /// @brief returns a Tensor of the specified shape.
@@ -88,6 +90,27 @@ namespace tensor
   {
     constexpr size_t rank = sizeof...(Sizes);
     return Tensor<scalar, rank, Allocator>(shape...);
+  }
+
+  namespace details
+  {
+    template <typename TensorType, size_t... I>
+    auto make_tensor_like_impl(const TensorType &tensor, std::index_sequence<I...>)
+    {
+      using value_type = std::remove_cvref_t<typename TensorType::value_type>;
+      constexpr size_t order = TensorType::order();
+      static_assert(order == sizeof...(I), "Invalid number of indices");
+
+      return make_tensor<value_type>(tensor.shape(I)...);
+    }
+  } // namespace details
+
+  /// @brief returns a Tensor with the same shape as the input tensor.
+  template <typename TensorType>
+  auto make_tensor_like(const TensorType &tensor)
+  {
+    constexpr size_t order = TensorType::order();
+    return details::make_tensor_like_impl(tensor, std::make_index_sequence<order>());
   }
 } // namespace tensor
 

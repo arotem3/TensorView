@@ -50,6 +50,11 @@ int main()
   assert(view3d_of_2d.shape(1) == 3);
   assert(view3d_of_2d.shape(2) == 1);
 
+  std::cout << "Initializing by copying shape..." << std::endl;
+  auto like = make_tensor_like(view1);
+  assert(like.shape(0) == view1.shape(0));
+  assert(like.shape(1) == view1.shape(1));
+
   std::cout << "Initialization test passed!" << std::endl;
   return 0;
 }
