@@ -141,6 +141,40 @@ namespace tensor
     template <typename T, typename Allocator>
     TENSOR_FUNC TensorView &operator=(std::vector<T, Allocator> &&vec) = delete; // avoids dangling references
 
+    template <typename T, size_t N>
+    TENSOR_FUNC TensorView(const std::array<T, N> &arr)
+        : base_tensor(shape_type(N), container_type(arr.data()))
+    {
+    }
+
+    template <typename T, size_t N>
+    TENSOR_FUNC TensorView(std::array<T, N> &arr)
+        : base_tensor(shape_type(N), container_type(arr.data()))
+    {
+    }
+
+    template <typename T, size_t N>
+    TENSOR_FUNC TensorView &operator=(const std::array<T, N> &arr)
+    {
+      this->container = arr.data();
+      this->_shape.reshape(N);
+      return *this;
+    }
+
+    template <typename T, size_t N>
+    TENSOR_FUNC TensorView &operator=(std::array<T, N> &arr)
+    {
+      this->container = arr.data();
+      this->_shape.reshape(N);
+      return *this;
+    }
+
+    template <typename T, size_t N>
+    TENSOR_FUNC TensorView(std::array<T, N> &&arr) = delete; // avoids dangling references
+
+    template <typename T, size_t N>
+    TENSOR_FUNC TensorView &operator=(std::array<T, N> &&arr) = delete; // avoids dangling references
+
     /**
      * @brief construct a TensorView from any tensor-like object.
      *
