@@ -43,7 +43,14 @@ namespace tensor::details
         tensor_out_of_range(msg);
       }
 #endif
-      return index * strides[0];
+      index_t l = 0;
+      for (index_t d = 0; d < Rank; ++d)
+      {
+        index_t i = index % _shape[d];
+        l += strides[d] * i;
+        index /= _shape[d];
+      }
+      return l;
     }
 
     TENSOR_FUNC index_t size() const
