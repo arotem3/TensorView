@@ -52,6 +52,36 @@ namespace tensor
     using view_value_type = std::conditional_t<std::is_const_v<TensorType>, const value_type, value_type>;
     return TensorView<view_value_type, order>(tensor);
   }
+
+  template <typename T, typename Allocator>
+  inline auto make_view(std::vector<T, Allocator> &tensor)
+  {
+    return reshape(tensor.data(), tensor.size());
+  }
+
+  template <typename T, typename Allocator>
+  inline auto make_view(const std::vector<T, Allocator> &tensor)
+  {
+    return reshape(tensor.data(), tensor.size());
+  }
+
+  template <typename T, typename Allocator>
+  auto make_view(std::vector<T, Allocator> &&tensor) = delete;
+
+  template <typename T, size_t N>
+  inline auto make_view(std::array<T, N> &tensor)
+  {
+    return reshape(tensor.data(), tensor.size());
+  }
+
+  template <typename T, size_t N>
+  inline auto make_view(const std::array<T, N> &tensor)
+  {
+    return reshape(tensor.data(), tensor.size());
+  }
+
+  template <typename T, size_t N>
+  auto make_view(std::array<T, N> &&tensor) = delete;
 } // namespace tensor
 
 #endif
