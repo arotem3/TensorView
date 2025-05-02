@@ -32,39 +32,48 @@ namespace tensor
 
     /// @brief construct a TensorView from another TensorView
     template <typename T, size_t R>
-      requires(R == Rank)
+      requires(R <= Rank)
     TENSOR_FUNC TensorView(const TensorView<T, R> &tensor)
+        : base_tensor(shape_type(), container_type(tensor.data()))
+    {
+      if constexpr (Rank == R)
+        this->_shape = tensor._shape;
+      else
+        match_shape(tensor, std::make_index_sequence<R>{});
+    }
+
+    template <typename T>
+    TENSOR_FUNC TensorView(TensorView<T, Rank> &&tensor)
         : base_tensor(tensor._shape, container_type(tensor.data()))
     {
     }
 
     template <typename T, size_t R>
-      requires(R == Rank)
-    TENSOR_FUNC TensorView(TensorView<T, R> &&tensor)
-        : base_tensor(tensor._shape, container_type(tensor.data()))
-    {
-    }
-
-    template <typename T, size_t R>
-      requires(R == Rank)
+      requires(R <= Rank)
     TENSOR_FUNC TensorView(TensorView<T, R> &tensor)
-        : base_tensor(tensor._shape, container_type(tensor.data()))
+        : base_tensor(shape_type(), container_type(tensor.data()))
     {
+      if constexpr (Rank == R)
+        this->_shape = tensor._shape;
+      else
+        match_shape(tensor, std::make_index_sequence<R>{});
     }
 
     /// @brief assign a TensorView to another TensorView
     template <typename T, size_t R>
-      requires(R == Rank)
+      requires(R <= Rank)
     TENSOR_FUNC TensorView &operator=(const TensorView<T, R> &tensor)
     {
       this->container = tensor.data();
-      this->_shape = tensor._shape;
+      if constexpr (Rank == R)
+        this->_shape = tensor._shape;
+      else
+        match_shape(tensor, std::make_index_sequence<R>{});
       return *this;
     }
 
-    template <typename T, size_t R>
-      requires(R == Rank)
-    TENSOR_FUNC TensorView &operator=(TensorView<T, R> &&tensor)
+    template <typename T>
+    TENSOR_FUNC TensorView &operator=(TensorView<T, Rank> &&tensor)
     {
       this->container = tensor.data();
       this->_shape = tensor._shape;
@@ -72,11 +81,14 @@ namespace tensor
     }
 
     template <typename T, size_t R>
-      requires(R == Rank)
+      requires(R <= Rank)
     TENSOR_FUNC TensorView &operator=(TensorView<T, R> &tensor)
     {
       this->container = tensor.data();
-      this->_shape = tensor._shape;
+      if constexpr (Rank == R)
+        this->_shape = tensor._shape;
+      else
+        match_shape(tensor, std::make_index_sequence<R>{});
       return *this;
     }
 
@@ -95,6 +107,40 @@ namespace tensor
     template <typename TensorType>
     TensorView(TensorType &&tensor) = delete; // avoids dangling references
 
+    template <typename T, typename Allocator>
+    TENSOR_FUNC TensorView(const std::vector<T, Allocator> &vec)
+        : base_tensor(shape_type(vec.size()), container_type(vec.data()))
+    {
+    }
+
+    template <typename T, typename Allocator>
+    TENSOR_FUNC TensorView(std::vector<T, Allocator> &vec)
+        : base_tensor(shape_type(vec.size()), container_type(vec.data()))
+    {
+    }
+
+    template <typename T, typename Allocator>
+    TENSOR_FUNC TensorView &operator=(const std::vector<T, Allocator> &vec)
+    {
+      this->container = vec.data();
+      this->_shape.reshape(vec.size());
+      return *this;
+    }
+
+    template <typename T, typename Allocator>
+    TENSOR_FUNC TensorView &operator=(std::vector<T, Allocator> &vec)
+    {
+      this->container = vec.data();
+      this->_shape.reshape(vec.size());
+      return *this;
+    }
+
+    template <typename T, typename Allocator>
+    TENSOR_FUNC TensorView(std::vector<T, Allocator> &&vec) = delete; // avoids dangling references
+
+    template <typename T, typename Allocator>
+    TENSOR_FUNC TensorView &operator=(std::vector<T, Allocator> &&vec) = delete; // avoids dangling references
+
     /**
      * @brief construct a TensorView from any tensor-like object.
      *
@@ -103,9 +149,9 @@ namespace tensor
     template <typename TensorType>
     TENSOR_FUNC TensorView &operator=(TensorType &tensor)
     {
-      constexpr size_t other_rank = TensorType::order();
-      match_shape(tensor, std::make_index_sequence<other_rank>{});
-      this->container = wrap_view(tensor.data());
+      constexpr size_t R = TensorType::order();
+      match_shape(tensor, std::make_index_sequence<R>{});
+      this->container = tensor.data();
 
       return *this;
     }
