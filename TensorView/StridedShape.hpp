@@ -27,6 +27,11 @@ namespace tensor::details
       return Rank;
     }
 
+    static constexpr index_t is_contiguous()
+    {
+      return false;
+    }
+
     template <typename... Indices>
     TENSOR_FUNC auto operator()(Indices... indices) const
     {

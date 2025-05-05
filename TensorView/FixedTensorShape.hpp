@@ -38,6 +38,11 @@ namespace tensor::details
       return rank;
     }
 
+    static constexpr index_t is_contiguous()
+    {
+      return true;
+    }
+
     static TENSOR_FUNC index_t size()
     {
       return len;

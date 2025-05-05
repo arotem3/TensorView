@@ -221,6 +221,11 @@ namespace tensor::details
       return Shape::order();
     }
 
+    static constexpr index_t is_contiguous()
+    {
+      return Shape::is_contiguous() && Container::is_contiguous();
+    }
+
     /**
      * @brief high dimensional read/write access.
      *

@@ -21,6 +21,11 @@ namespace tensor
     using pointer = typename base_tensor::pointer;
     using const_pointer = typename base_tensor::const_pointer;
 
+    static constexpr bool is_contiguous()
+    {
+      return true;
+    }
+
     TENSOR_FUNC explicit FixedTensorView(scalar *data) : base_tensor(shape_type{}, container_type(data)) {}
 
     /// @brief implicit conversion to scalar*

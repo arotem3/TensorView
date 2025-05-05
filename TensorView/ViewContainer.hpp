@@ -17,6 +17,11 @@ namespace tensor::details
     using pointer = T *;
     using const_pointer = TENSOR_CONST_QUAL(T) *;
 
+    static constexpr bool is_contiguous()
+    {
+      return true;
+    }
+
     TENSOR_FUNC ViewContainer(pointer data = nullptr) : ptr{data} {}
 
     TENSOR_FUNC const_pointer data() const
