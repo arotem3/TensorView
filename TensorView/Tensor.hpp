@@ -112,6 +112,19 @@ namespace tensor
     constexpr size_t order = TensorType::order();
     return details::make_tensor_like_impl(tensor, std::make_index_sequence<order>());
   }
+
+
+  template <typename T, typename Allocator>
+  auto make_tensor_like(const std::vector<T, Allocator> &vec)
+  {
+    return make_tensor<T>(vec.size());
+  }
+
+  template <typename T, size_t N>
+  auto make_tensor_like(const std::array<T, N> &)
+  {
+    return make_tensor<T>(N);
+  }
 } // namespace tensor
 
 #endif
