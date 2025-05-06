@@ -4,6 +4,7 @@
 #include "tensorview_config.hpp"
 #include "errors.hpp"
 #include "span.hpp"
+#include "ViewContainer.hpp"
 
 namespace tensor
 {
@@ -26,66 +27,48 @@ namespace tensor::details
     using shape_type = Shape;
     using container_type = Container;
 
-    template <typename ViewType>
+    template <typename T>
     class Iterator
     {
     public:
+      using container_type = ViewContainer<T>;
       using iterator_category = std::random_access_iterator_tag;
-      using value_type = typename ViewType::value_type;
+      using value_type = T;
       using difference_type = std::ptrdiff_t;
       using pointer = value_type *;
       using reference = value_type &;
 
-      // sentinel
-      TENSOR_FUNC Iterator()
-          : initialized(false), _pos(0) {}
+      Iterator(const Iterator&) = default;
+      Iterator &operator=(const Iterator&) = default;
 
-      TENSOR_FUNC Iterator(Shape shape_, ViewType &&view_, index_t pos)
-          : initialized(true), _pos(pos), _shape(shape_), _view(view_) {}
+      TENSOR_FUNC Iterator() = default;
 
-      TENSOR_FUNC reference operator*()
+      TENSOR_FUNC Iterator(Shape shape_, container_type &&view_, difference_type pos)
+          : _shape(shape_), _view(view_), _pos(pos) {}
+
+      TENSOR_FUNC reference operator*() const
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         return _view[_shape[_pos]];
       }
 
-      TENSOR_FUNC pointer operator->()
+      TENSOR_FUNC pointer operator->() const
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         return &_view[_shape[_pos]];
       }
 
-      TENSOR_FUNC reference operator[](difference_type n)
+      TENSOR_FUNC reference operator[](difference_type n) const
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         return _view[_shape[_pos + n]];
       }
 
       TENSOR_FUNC Iterator &operator++()
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         ++_pos;
         return *this;
       }
 
       TENSOR_FUNC Iterator operator++(int)
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         Iterator tmp = *this;
         ++_pos;
         return tmp;
@@ -93,20 +76,12 @@ namespace tensor::details
 
       TENSOR_FUNC Iterator &operator--()
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         --_pos;
         return *this;
       }
 
       TENSOR_FUNC Iterator operator--(int)
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         Iterator tmp = *this;
         --_pos;
         return tmp;
@@ -114,90 +89,74 @@ namespace tensor::details
 
       TENSOR_FUNC Iterator operator+(difference_type n) const
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         return Iterator(_shape, _view, _pos + n);
       }
 
       TENSOR_FUNC Iterator operator-(difference_type n) const
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         return Iterator(_shape, _view, _pos - n);
       }
 
       TENSOR_FUNC Iterator &operator+=(difference_type n)
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         _pos += n;
         return *this;
       }
 
       TENSOR_FUNC Iterator &operator-=(difference_type n)
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized)
-          tensor_bad_memory_access();
-#endif
         _pos -= n;
         return *this;
       }
 
       TENSOR_FUNC difference_type operator-(const Iterator &other) const
       {
-#ifdef TENSOR_DEBUG
-        if (!initialized || !other.initialized)
-          tensor_bad_memory_access();
-#endif
         return _pos - other._pos;
       }
 
       TENSOR_FUNC bool operator==(const Iterator &other) const
       {
-        return initialized && other.initialized && (_pos == other._pos);
+        return _pos == other._pos;
       }
 
       TENSOR_FUNC bool operator!=(const Iterator &other) const
       {
-        return (not initialized) or (not other.initialized) or (_pos != other._pos);
+        return _pos != other._pos;
       }
 
       TENSOR_FUNC bool operator<(const Iterator &other) const
       {
-        return (!initialized || (other.initialized && _pos < other._pos));
+        return _pos < other._pos;
       }
 
       TENSOR_FUNC bool operator>(const Iterator &other) const
       {
-        return !other.initialized || (initialized && _pos > other._pos);
+        return _pos > other._pos;
       }
 
       TENSOR_FUNC bool operator<=(const Iterator &other) const
       {
-        return (!initialized || (other.initialized && _pos <= other._pos));
+        return _pos <= other._pos;
       }
 
       TENSOR_FUNC bool operator>=(const Iterator &other) const
       {
-        return !other.initialized || (initialized && _pos >= other._pos);
+        return _pos >= other._pos;
+      }
+
+      friend TENSOR_FUNC Iterator operator+(difference_type n, const Iterator &it)
+      {
+        return it + n;
       }
 
     private:
-      bool initialized;
-      index_t _pos;
       Shape _shape;
-      ViewType _view;
+      mutable container_type _view;
+      difference_type _pos;
     };
 
-    using iterator = Iterator<decltype(wrap_view(std::declval<Container &>()))>;
-    using const_iterator = Iterator<decltype(wrap_view(std::declval<const Container &>()))>;
+    using iterator = Iterator<value_type>;
+    using const_iterator = Iterator<TENSOR_CONST_QUAL(value_type)>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -301,25 +260,25 @@ namespace tensor::details
     /// @brief returns pointer to start of tensor.
     TENSOR_FUNC iterator begin()
     {
-      return iterator(_shape, wrap_view<Container>(container), 0);
+      return iterator(_shape, wrap_view(container), 0);
     }
 
     /// @brief returns pointer to start of tensor.
     TENSOR_FUNC const_iterator begin() const
     {
-      return const_iterator(_shape, wrap_view<const Container>(container), 0);
+      return const_iterator(_shape, wrap_view(container), 0);
     }
 
     /// @brief returns pointer to the element following the last element of tensor.
     TENSOR_FUNC iterator end()
     {
-      return iterator(_shape, wrap_view<Container>(container), size());
+      return iterator(_shape, wrap_view(container), size());
     }
 
     /// @brief returns pointer to the element following the last element of tensor.
     TENSOR_FUNC const_iterator end() const
     {
-      return const_iterator(_shape, wrap_view<const Container>(container), size());
+      return const_iterator(_shape, wrap_view(container), size());
     }
 
     /// @brief returns reverse iterator to the end of the tensor.

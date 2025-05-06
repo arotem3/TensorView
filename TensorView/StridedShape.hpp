@@ -11,6 +11,13 @@ namespace tensor::details
   struct StridedShape
   {
   public:
+    TENSOR_FUNC StridedShape(const StridedShape &) = default;
+    TENSOR_FUNC StridedShape(StridedShape &&) = default;
+    TENSOR_FUNC StridedShape() = default;
+
+    TENSOR_FUNC StridedShape &operator=(const StridedShape &) = default;
+    TENSOR_FUNC StridedShape &operator=(StridedShape &&) = default;
+
     TENSOR_FUNC StridedShape(const std::array<span, Rank> &spans)
     {
       len = 1;
