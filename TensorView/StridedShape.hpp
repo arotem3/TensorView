@@ -29,6 +29,14 @@ namespace tensor::details
       }
     }
 
+    TENSOR_FUNC StridedShape(const std::array<index_t, Rank> &shape, const std::array<index_t, Rank> &strides_)
+      : _shape(shape), strides(strides_)
+    {
+      len = 1;
+      for (index_t s : _shape)
+        len *= s;
+    }
+
     static constexpr index_t order()
     {
       return Rank;
