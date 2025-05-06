@@ -182,7 +182,7 @@ namespace tensor::details
 
     static constexpr index_t is_contiguous()
     {
-      return Shape::is_contiguous() && Container::is_contiguous();
+      return Shape::is_contiguous() && is_contiguous_container<Container>::value;
     }
 
     /**

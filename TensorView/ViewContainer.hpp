@@ -69,6 +69,18 @@ namespace tensor::details
     return details::ViewContainer<const typename Container::value_type>(container.data());
   }
 
+  template <typename T>
+  struct is_contiguous_container : std::false_type {};
+
+  template <typename T, typename Alloc>
+  struct is_contiguous_container<std::vector<T, Alloc>> : std::true_type {};
+
+  template <typename T, size_t N>
+  struct is_contiguous_container<std::array<T, N>> : std::true_type {};
+
+  template <typename T>
+  struct is_contiguous_container<ViewContainer<T>> : std::true_type {};
+
 } // namespace tensor::details
 
 #endif
