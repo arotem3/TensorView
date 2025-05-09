@@ -94,36 +94,37 @@ namespace tensor
 
   namespace details
   {
-    template <typename TensorType, size_t... I>
+    template <typename value_type_out, typename TensorType, size_t... I>
     auto make_tensor_like_impl(const TensorType &tensor, std::index_sequence<I...>)
     {
-      using value_type = std::remove_cvref_t<typename TensorType::value_type>;
       constexpr size_t order = TensorType::order();
       static_assert(order == sizeof...(I), "Invalid number of indices");
-
-      return make_tensor<value_type>(tensor.shape(I)...);
+      return make_tensor<value_type_out>(tensor.shape(I)...);
     }
   } // namespace details
 
   /// @brief returns a Tensor with the same shape as the input tensor.
-  template <typename TensorType>
+  template <typename value_type_out = void, typename TensorType>
   auto make_tensor_like(const TensorType &tensor)
   {
     constexpr size_t order = TensorType::order();
-    return details::make_tensor_like_impl(tensor, std::make_index_sequence<order>());
+    using value_type = std::conditional_t<std::is_same_v<value_type_out, void>, std::decay_t<typename TensorType::value_type>, value_type_out>;
+    return details::make_tensor_like_impl<value_type>(tensor, std::make_index_sequence<order>());
   }
 
 
-  template <typename T, typename Allocator>
+  template <typename Tout = void, typename T, typename Allocator>
   auto make_tensor_like(const std::vector<T, Allocator> &vec)
   {
-    return make_tensor<T>(vec.size());
+    using value_type = std::conditional_t<std::is_same_v<Tout, void>, std::decay_t<T>, Tout>;
+    return make_tensor<value_type>(vec.size());
   }
 
-  template <typename T, size_t N>
+  template <typename Tout = void, typename T, size_t N>
   auto make_tensor_like(const std::array<T, N> &)
   {
-    return make_tensor<T>(N);
+    using value_type = std::conditional_t<std::is_same_v<Tout, void>, std::decay_t<T>, Tout>;
+    return make_tensor<value_type>(N);
   }
 } // namespace tensor
 
