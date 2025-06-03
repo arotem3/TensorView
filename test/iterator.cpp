@@ -23,6 +23,7 @@ int main()
   check_iterator_concepts<TensorView<double,1>>("TensorView");
   check_iterator_concepts<FixedTensor<double,1,2>>("FixedTensor");
   check_iterator_concepts<FixedTensorView<double,3,3>>("FixedTensorView");
+  check_iterator_concepts<SubView<double,1>>("SubView");
   check_iterator_concepts<SubView<double,2>>("SubView");
 
   double data[500];

@@ -136,11 +136,23 @@ namespace tensor::details
   struct StridedShape<1>
   {
   public:
+    TENSOR_FUNC StridedShape(const StridedShape &) = default;
+    TENSOR_FUNC StridedShape(StridedShape &&) = default;
+    TENSOR_FUNC StridedShape() = default;
+
+    TENSOR_FUNC StridedShape &operator=(const StridedShape &) = default;
+    TENSOR_FUNC StridedShape &operator=(StridedShape &&) = default;
+
     TENSOR_FUNC StridedShape(const span &x) : len{x.size()}, stride{x.stride} {}
 
     static constexpr index_t order()
     {
       return 1;
+    }
+
+    static constexpr index_t is_contiguous()
+    {
+      return false;
     }
 
     TENSOR_FUNC index_t operator()(index_t i) const
