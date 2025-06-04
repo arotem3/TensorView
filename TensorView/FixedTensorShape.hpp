@@ -38,7 +38,7 @@ namespace tensor::details
       return rank;
     }
 
-    static constexpr index_t is_contiguous()
+    static constexpr bool is_contiguous()
     {
       return true;
     }

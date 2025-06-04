@@ -42,7 +42,7 @@ namespace tensor::details
       return Rank;
     }
 
-    static constexpr index_t is_contiguous()
+    static constexpr bool is_contiguous()
     {
       return false;
     }
@@ -150,7 +150,7 @@ namespace tensor::details
       return 1;
     }
 
-    static constexpr index_t is_contiguous()
+    static constexpr bool is_contiguous()
     {
       return false;
     }

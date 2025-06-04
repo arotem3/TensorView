@@ -180,7 +180,7 @@ namespace tensor::details
       return Shape::order();
     }
 
-    static constexpr index_t is_contiguous()
+    static constexpr bool is_contiguous()
     {
       return Shape::is_contiguous() && is_contiguous_container<Container>::value;
     }
