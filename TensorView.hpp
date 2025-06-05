@@ -16,6 +16,7 @@
 #include "TensorView/FixedTensor.hpp"
 #include "TensorView/Tensor.hpp"
 #include "TensorView/reshape.hpp"
+#include "TensorView/Transformer.hpp"
 #include "TensorView/named_tensors.hpp"
 
 #endif

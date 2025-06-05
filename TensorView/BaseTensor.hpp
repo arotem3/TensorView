@@ -192,16 +192,16 @@ namespace tensor::details
   template <typename Shape, typename Container>
   class BaseTensor
   {
+  private:
+    using ct = container_traits<Container>;
   public:
-    using value_type = typename Container::value_type;
-    using reference = typename Container::reference;
-    using const_reference = typename Container::const_reference;
+    using value_type = typename ct::value_type;
 
     using shape_type = Shape;
     using container_type = Container;
 
-    using iterator = TensorIterator<shape_type, typename container_traits<Container>::view_type>;
-    using const_iterator = TensorIterator<shape_type, typename container_traits<Container>::const_view_type>;
+    using iterator = TensorIterator<shape_type, typename ct::view_type>;
+    using const_iterator = TensorIterator<shape_type, typename ct::const_view_type>;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
@@ -305,28 +305,24 @@ namespace tensor::details
     /// @brief returns iterator to start of tensor.
     TENSOR_FUNC iterator begin()
     {
-      using ct = container_traits<container_type>;
       return iterator(_shape, ct::make_view(_container), 0);
     }
 
     /// @brief returns iterator to start of tensor.
     TENSOR_FUNC const_iterator begin() const
     {
-      using ct = container_traits<container_type>;
       return const_iterator(_shape, ct::make_view(_container), 0);
     }
 
     /// @brief returns iterator to the element following the last element of tensor.
     TENSOR_FUNC iterator end()
     {
-      using ct = container_traits<container_type>;
       return iterator(_shape, ct::make_view(_container), size());
     }
 
     /// @brief returns iterator to the element following the last element of tensor.
     TENSOR_FUNC const_iterator end() const
     {
-      using ct = container_traits<container_type>;
       return const_iterator(_shape, ct::make_view(_container), size());
     }
 
@@ -366,6 +362,26 @@ namespace tensor::details
       return _shape.shape(d);
     }
 
+    TENSOR_FUNC const Shape &shape() const
+    {
+      return _shape;
+    }
+
+    TENSOR_FUNC Shape &shape()
+    {
+      return _shape;
+    }
+
+    TENSOR_FUNC const Container &container() const
+    {
+      return _container;
+    }
+
+    TENSOR_FUNC Container &container()
+    {
+      return _container;
+    }
+    
   protected:
     Shape _shape;
     Container _container;
