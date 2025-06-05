@@ -18,8 +18,8 @@ namespace tensor
     using base_tensor = details::BaseTensor<details::FixedTensorShape<Shape...>, details::ViewContainer<scalar>>;
     using shape_type = details::FixedTensorShape<Shape...>;
     using container_type = details::ViewContainer<scalar>;
-    using pointer = typename base_tensor::pointer;
-    using const_pointer = typename base_tensor::const_pointer;
+    using pointer = typename base_tensor::value_type *;
+    using const_pointer = TENSOR_CONST_QUAL(typename base_tensor::value_type) *;
 
     static constexpr bool is_contiguous()
     {
@@ -43,13 +43,13 @@ namespace tensor
     /// @brief returns the externally managed array
     TENSOR_FUNC pointer data()
     {
-      return this->container.data();
+      return this->_container.data();
     }
 
     /// @brief returns the externally managed array
     TENSOR_FUNC const_pointer data() const
     {
-      return this->container.data();
+      return this->_container.data();
     }
   };
 } // namespace tensor

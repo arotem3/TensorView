@@ -27,8 +27,8 @@ namespace tensor
     using shape_type = details::DynamicTensorShape<Rank>;
     using container_type = std::vector<scalar, Allocator>;
 
-    using pointer = typename base_tensor::pointer;
-    using const_pointer = typename base_tensor::const_pointer;
+    using pointer = typename base_tensor::value_type *;
+    using const_pointer = TENSOR_CONST_QUAL(typename base_tensor::value_type) *;
 
     template <TENSOR_INT_LIKE... Sizes>
     inline explicit Tensor(Sizes... shape) : base_tensor(shape_type(shape...), container_type((1 * ... * shape))) {}
@@ -39,7 +39,7 @@ namespace tensor
     TENSOR_FUNC Tensor &reshape(Sizes... new_shape)
     {
       this->_shape.reshape(std::forward<Sizes>(new_shape)...);
-      this->container.resize(this->_shape.size());
+      this->_container.resize(this->_shape.size());
 
       return *this;
     }
@@ -59,13 +59,13 @@ namespace tensor
     /// @brief returns the externally managed array
     TENSOR_FUNC pointer data()
     {
-      return this->container.data();
+      return this->_container.data();
     }
 
     /// @brief returns the externally managed array
     TENSOR_FUNC const_pointer data() const
     {
-      return this->container.data();
+      return this->_container.data();
     }
 
     /// @brief cast to TensorView

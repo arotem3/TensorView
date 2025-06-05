@@ -3,6 +3,7 @@
 
 #include "TensorView/tensorview_config.hpp"
 #include "TensorView/errors.hpp"
+#include "TensorView/ContainerTraits.hpp"
 #include "TensorView/span.hpp"
 #include "TensorView/DynamicTensorShape.hpp"
 #include "TensorView/FixedTensorShape.hpp"

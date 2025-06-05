@@ -19,8 +19,8 @@ namespace tensor
   {
   public:
     using base_tensor = details::BaseTensor<details::FixedTensorShape<Shape...>, std::array<scalar, (1 * ... * Shape)>>;
-    using pointer = typename base_tensor::pointer;
-    using const_pointer = typename base_tensor::const_pointer;
+    using pointer = typename base_tensor::value_type *;
+    using const_pointer = TENSOR_CONST_QUAL(typename base_tensor::value_type) *;
 
     TENSOR_FUNC FixedTensor()
         : base_tensor(details::FixedTensorShape<Shape...>(), std::array<scalar, (1 * ... * Shape)>{scalar()}) {}
@@ -40,13 +40,13 @@ namespace tensor
     /// @brief returns the externally managed array
     TENSOR_FUNC pointer data()
     {
-      return this->container.data();
+      return this->_container.data();
     }
 
     /// @brief returns the externally managed array
     TENSOR_FUNC const_pointer data() const
     {
-      return this->container.data();
+      return this->_container.data();
     }
   };
 

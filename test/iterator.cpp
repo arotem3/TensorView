@@ -7,24 +7,23 @@ using namespace tensor;
 template <typename T>
 void check_iterator_concepts(const std::string &name)
 {
-  static_assert(std::input_iterator<typename T::iterator>);
-  static_assert(std::input_iterator<typename T::const_iterator>);
-  static_assert(std::sentinel_for<typename T::iterator, typename T::iterator>);
-  static_assert(std::sentinel_for<typename T::const_iterator, typename T::const_iterator>);
-  static_assert(std::random_access_iterator<typename T::iterator>);
-  static_assert(std::random_access_iterator<typename T::const_iterator>);
+  static_assert(std::ranges::random_access_range<const T>);
+  static_assert(std::ranges::output_range<T, typename T::value_type>);
+
+  if constexpr (T::is_contiguous())
+    static_assert(std::ranges::contiguous_range<const T>);
 
   std::cout << name << "::iterator and " << name << "::const_iterator satisfy iterator traits." << std::endl;
 }
 
 int main()
 {
-  check_iterator_concepts<Tensor<double,1>>("Tensor");
-  check_iterator_concepts<TensorView<double,1>>("TensorView");
-  check_iterator_concepts<FixedTensor<double,1,2>>("FixedTensor");
-  check_iterator_concepts<FixedTensorView<double,3,3>>("FixedTensorView");
-  check_iterator_concepts<SubView<double,1>>("SubView");
-  check_iterator_concepts<SubView<double,2>>("SubView");
+  check_iterator_concepts<Tensor<double, 1>>("Tensor");
+  check_iterator_concepts<TensorView<double, 1>>("TensorView");
+  check_iterator_concepts<FixedTensor<double, 1, 2>>("FixedTensor");
+  check_iterator_concepts<FixedTensorView<double, 3, 3>>("FixedTensorView");
+  check_iterator_concepts<SimpleSubView<double, 1>>("SubView");
+  check_iterator_concepts<SimpleSubView<double, 2>>("SubView");
 
   double data[500];
   for (int i = 0; i < 500; i++)
