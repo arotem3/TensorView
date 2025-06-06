@@ -25,7 +25,7 @@ namespace tensor::details
     return SubView<Rank, container_type>(shape_type(spans), ct::make_view(container, details::offset(spans)));
   }
 
-  template<size_t Rank, typename Container>
+  template <size_t Rank, typename Container>
   TENSOR_HOST_DEVICE inline auto make_subview(Container &container, const std::array<span, Rank> &spans)
   {
     using shape_type = details::StridedShape<Rank>;
@@ -194,6 +194,7 @@ namespace tensor::details
   {
   private:
     using ct = container_traits<Container>;
+
   public:
     using value_type = typename ct::value_type;
 
@@ -362,26 +363,6 @@ namespace tensor::details
       return _shape.shape(d);
     }
 
-    TENSOR_FUNC const Shape &shape() const
-    {
-      return _shape;
-    }
-
-    TENSOR_FUNC Shape &shape()
-    {
-      return _shape;
-    }
-
-    TENSOR_FUNC const Container &container() const
-    {
-      return _container;
-    }
-
-    TENSOR_FUNC Container &container()
-    {
-      return _container;
-    }
-    
   protected:
     Shape _shape;
     Container _container;

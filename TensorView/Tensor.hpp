@@ -3,6 +3,7 @@
 
 #include "tensorview_config.hpp"
 #include "DynamicTensorShape.hpp"
+#include "TensorTraits.hpp"
 
 namespace tensor
 {
@@ -82,6 +83,8 @@ namespace tensor
   private:
     template <typename T, size_t R>
     friend class TensorView;
+
+    friend struct details::tensor_traits<Tensor<scalar, Rank, Allocator>>;
   };
 
   /// @brief returns a Tensor of the specified shape.
@@ -127,5 +130,40 @@ namespace tensor
     return make_tensor<value_type>(N);
   }
 } // namespace tensor
+
+namespace tensor::details
+{
+  template <typename scalar, size_t Rank>
+  struct tensor_traits<tensor::Tensor<scalar, Rank>>
+  {
+    using tensor_type = tensor::Tensor<scalar, Rank>;
+    using value_type = scalar;
+    using shape_type = typename tensor_type::shape_type;
+    using container_type = typename tensor_type::container_type;
+
+    static constexpr bool is_contiguous = true;
+
+    static shape_type shape(const tensor_type &tensor)
+    {
+      return tensor._shape;
+    }
+
+    static const container_type &container(const tensor_type &tensor)
+    {
+      return tensor._container;
+    }
+
+    static container_type &container(tensor_type &tensor)
+    {
+      return tensor._container;
+    }
+
+    static container_type container(tensor_type &&tensor)
+    {
+      return std::move(tensor._container);
+    }
+  };
+} // namespace tensor::details
+
 
 #endif

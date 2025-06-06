@@ -5,6 +5,7 @@
 #include "DynamicTensorShape.hpp"
 #include "ViewContainer.hpp"
 #include "BaseTensor.hpp"
+#include "TensorTraits.hpp"
 
 namespace tensor
 {
@@ -236,6 +237,8 @@ namespace tensor
     template <typename T, size_t R>
     friend class TensorView;
 
+    friend struct details::tensor_traits<TensorView<scalar, Rank>>;
+
     template <typename TensorType, size_t... I>
     TENSOR_FUNC void match_shape(TensorType &tensor, std::index_sequence<I...>)
     {
@@ -244,5 +247,41 @@ namespace tensor
   };
 
 } // namespace tensor
+
+namespace tensor::details
+{
+  template <typename scalar, size_t Rank>
+  struct tensor_traits<TensorView<scalar, Rank>>
+  {
+    using tensor_type = TensorView<scalar, Rank>;
+    using value_type = scalar;
+    using shape_type = typename tensor_type::shape_type;
+    using container_type = typename tensor_type::container_type;
+
+    static constexpr bool is_contiguous = true;
+    static constexpr bool is_mutable = std::assignable_from<value_type &, value_type>;
+
+    static shape_type shape(const tensor_type &tensor)
+    {
+      return tensor._shape;
+    }
+
+    static const container_type &container(const tensor_type &tensor)
+    {
+      return tensor._container;
+    }
+
+    static container_type &container(tensor_type &tensor)
+    {
+      return tensor._container;
+    }
+
+    static container_type container(tensor_type &&tensor)
+    {
+      return std::move(tensor._container);
+    }
+  };
+} // namespace tensor::details
+
 
 #endif

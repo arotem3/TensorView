@@ -19,19 +19,19 @@ int main()
   tensor.reshape(3, 2);
 
   std::cout << "Reshaping pointer into TensorView..." << std::endl;
-  auto reshaped_data = reshape(data, 1, 6);
+  [[maybe_unused]] auto reshaped_data = reshape(data, 1, 6);
 
   std::cout << "Reshaping tensor_view into TensorView..." << std::endl;
-  auto reshaped_tensor_view = reshape(tensor_view, 1, 6);
+  [[maybe_unused]] auto reshaped_tensor_view = reshape(tensor_view, 1, 6);
 
   std::cout << "Reshaping fixed_tensor_view into TensorView..." << std::endl;
-  auto reshaped_fixed_tensor_view = reshape(fixed_tensor_view, 1, 6);
+  [[maybe_unused]] auto reshaped_fixed_tensor_view = reshape(fixed_tensor_view, 1, 6);
 
   std::cout << "Reshaping tensor into TensorView..." << std::endl;
-  auto reshaped_tensor = reshape(tensor, 1, 6);
+  [[maybe_unused]] auto reshaped_tensor = reshape(tensor, 1, 6);
 
   std::cout << "Reshaping fixed_tensor into TensorView..." << std::endl;
-  auto reshaped_fixed_tensor = reshape(fixed_tensor, 1, 6);
+  [[maybe_unused]] auto reshaped_fixed_tensor = reshape(fixed_tensor, 1, 6);
 
   std::cout << "Reshape test passed!" << std::endl;
 
