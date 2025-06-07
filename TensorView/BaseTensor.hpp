@@ -55,6 +55,27 @@ namespace tensor::details
     return SubView<1, container_type>(shape_type(s), ct::make_view(container, s.begin));
   }
 
+  struct trivial_shape
+  {
+    template <typename Shape>
+    trivial_shape(const Shape &)
+    {
+      static_assert(Shape::is_contiguous(), "Shape must be contiguous to be trivial.");
+    }
+
+    trivial_shape() = default;
+    trivial_shape(const trivial_shape &) = default;
+    trivial_shape &operator=(const trivial_shape &) = default;
+    trivial_shape(trivial_shape &&) = default;
+    trivial_shape &operator=(trivial_shape &&) = default;
+    ~trivial_shape() = default;
+
+    TENSOR_FUNC index_t operator[](index_t idx) const
+    {
+      return idx;
+    }
+  };
+
   template <typename Shape, typename Container>
   class TensorIterator
   {
@@ -64,7 +85,7 @@ namespace tensor::details
 
   public:
     using container_type = Container;
-    using shape_type = Shape;
+    using shape_type = std::conditional_t<_contiguous, trivial_shape, Shape>;
 
     using iterator_category = std::conditional_t<_contiguous, std::contiguous_iterator_tag, std::random_access_iterator_tag>;
     using value_type = typename Container::value_type;
@@ -76,7 +97,7 @@ namespace tensor::details
     TENSOR_FUNC TensorIterator(const TensorIterator &) = default;
     TENSOR_FUNC TensorIterator &operator=(const TensorIterator &) = default;
 
-    TENSOR_FUNC TensorIterator(const Shape &shape_, Container &&container_, difference_type pos)
+    TENSOR_FUNC TensorIterator(const shape_type &shape_, Container &&container_, difference_type pos)
         : _shape(shape_), _container(std::forward<Container>(container_)), _pos(pos) {}
 
     TENSOR_HOST_DEVICE inline decltype(auto) operator*() const
@@ -123,12 +144,12 @@ namespace tensor::details
 
     TENSOR_FUNC TensorIterator operator+(difference_type n) const
     {
-      return TensorIterator(_shape, _container, _pos + n);
+      return TensorIterator(_shape, Container(_container), _pos + n);
     }
 
     TENSOR_FUNC TensorIterator operator-(difference_type n) const
     {
-      return TensorIterator(_shape, _container, _pos - n);
+      return TensorIterator(_shape, Container(_container), _pos - n);
     }
 
     TENSOR_FUNC TensorIterator &operator+=(difference_type n)
