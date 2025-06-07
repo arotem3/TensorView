@@ -63,12 +63,12 @@ namespace tensor::details
 
     TENSOR_HOST_DEVICE static inline view_type make_view(TransformedContainerWrapper<Container, Func> &x, ptrdiff_t offset = 0)
     {
-      return view_type(ct::make_view(x._container, offset), x._func);
+      return view_type(ct::make_view(x._container, offset), Func{x._func});
     }
 
-    TENSOR_HOST_DEVICE static inline const const_view_type make_view(const TransformedContainerWrapper<Container, Func> &x, ptrdiff_t offset = 0)
+    TENSOR_HOST_DEVICE static inline const_view_type make_view(const TransformedContainerWrapper<Container, Func> &x, ptrdiff_t offset = 0)
     {
-      return const_view_type(ct::make_view(x._container, offset), x._func);
+      return const_view_type(ct::make_view(x._container, offset), Func{x._func});
     }
   };
 } // namespace tensor::details
