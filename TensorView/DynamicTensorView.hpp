@@ -9,6 +9,21 @@
 
 namespace tensor
 {
+  namespace details
+  {
+    template <typename T, typename pointer>
+    concept HasConvertibleData = requires(T x)
+    {
+      { x.data() } -> std::convertible_to<pointer>;
+    };
+
+    template <typename T, typename pointer>
+    concept ConvertibleAsPointer = std::convertible_to<T*, pointer>;
+
+    template <typename T, typename pointer>
+    concept ConvertibleAsConstPointer = std::convertible_to<const T*, pointer>;
+  }
+
   template <typename scalar, size_t Rank, typename Allocator>
   class Tensor;
 
@@ -37,7 +52,7 @@ namespace tensor
     TENSOR_FUNC TensorView() : base_tensor(shape_type(), container_type(nullptr)) {}
 
     /// @brief construct a TensorView from another TensorView
-    template <typename T, size_t R>
+    template <details::ConvertibleAsConstPointer<pointer> T, size_t R>
       requires(R <= Rank)
     TENSOR_FUNC TensorView(const TensorView<T, R> &tensor)
         : base_tensor(shape_type(), container_type(tensor.data()))
@@ -48,13 +63,13 @@ namespace tensor
         match_shape(tensor, std::make_index_sequence<R>{});
     }
 
-    template <typename T>
+    template <details::ConvertibleAsPointer<pointer> T>
     TENSOR_FUNC TensorView(TensorView<T, Rank> &&tensor)
         : base_tensor(tensor._shape, container_type(tensor.data()))
     {
     }
 
-    template <typename T, size_t R>
+    template <details::ConvertibleAsPointer<pointer> T, size_t R>
       requires(R <= Rank)
     TENSOR_FUNC TensorView(TensorView<T, R> &tensor)
         : base_tensor(shape_type(), container_type(tensor.data()))
@@ -66,7 +81,7 @@ namespace tensor
     }
 
     /// @brief assign a TensorView to another TensorView
-    template <typename T, size_t R>
+    template <details::ConvertibleAsConstPointer<pointer> T, size_t R>
       requires(R <= Rank)
     TENSOR_FUNC TensorView &operator=(const TensorView<T, R> &tensor)
     {
@@ -78,7 +93,7 @@ namespace tensor
       return *this;
     }
 
-    template <typename T>
+    template <details::ConvertibleAsPointer<pointer> T>
     TENSOR_FUNC TensorView &operator=(TensorView<T, Rank> &&tensor)
     {
       this->_container = tensor.data();
@@ -86,7 +101,7 @@ namespace tensor
       return *this;
     }
 
-    template <typename T, size_t R>
+    template <details::ConvertibleAsPointer<pointer> T, size_t R>
       requires(R <= Rank)
     TENSOR_FUNC TensorView &operator=(TensorView<T, R> &tensor)
     {
@@ -103,29 +118,26 @@ namespace tensor
      *
      * @details Caveat: the order of the other tensor must be less than or equal to the order of the TensorView.
      */
-    template <typename TensorType>
+    template <details::HasConvertibleData<pointer> TensorType>
     TENSOR_FUNC TensorView(TensorType &tensor) : base_tensor(shape_type(), container_type(tensor.data()))
     {
       constexpr size_t other_rank = TensorType::order();
       match_shape(tensor, std::make_index_sequence<other_rank>{});
     }
 
-    template <typename TensorType>
-    TensorView(TensorType &&tensor) = delete; // avoids dangling references
-
-    template <typename T, typename Allocator>
+    template <details::ConvertibleAsConstPointer<pointer> T, typename Allocator>
     TENSOR_FUNC TensorView(const std::vector<T, Allocator> &vec)
         : base_tensor(shape_type(vec.size()), container_type(vec.data()))
     {
     }
 
-    template <typename T, typename Allocator>
+    template <details::ConvertibleAsPointer<pointer> T, typename Allocator>
     TENSOR_FUNC TensorView(std::vector<T, Allocator> &vec)
         : base_tensor(shape_type(vec.size()), container_type(vec.data()))
     {
     }
 
-    template <typename T, typename Allocator>
+    template <details::ConvertibleAsConstPointer<pointer> T, typename Allocator>
     TENSOR_FUNC TensorView &operator=(const std::vector<T, Allocator> &vec)
     {
       this->container = vec.data();
@@ -133,7 +145,7 @@ namespace tensor
       return *this;
     }
 
-    template <typename T, typename Allocator>
+    template <details::ConvertibleAsPointer<pointer> T, typename Allocator>
     TENSOR_FUNC TensorView &operator=(std::vector<T, Allocator> &vec)
     {
       this->container = vec.data();
@@ -147,19 +159,19 @@ namespace tensor
     template <typename T, typename Allocator>
     TENSOR_FUNC TensorView &operator=(std::vector<T, Allocator> &&vec) = delete; // avoids dangling references
 
-    template <typename T, size_t N>
+    template <details::ConvertibleAsConstPointer<pointer> T, size_t N>
     TENSOR_FUNC TensorView(const std::array<T, N> &arr)
         : base_tensor(shape_type(N), container_type(arr.data()))
     {
     }
 
-    template <typename T, size_t N>
+    template <details::ConvertibleAsPointer<pointer> T, size_t N>
     TENSOR_FUNC TensorView(std::array<T, N> &arr)
         : base_tensor(shape_type(N), container_type(arr.data()))
     {
     }
 
-    template <typename T, size_t N>
+    template <details::ConvertibleAsConstPointer<pointer> T, size_t N>
     TENSOR_FUNC TensorView &operator=(const std::array<T, N> &arr)
     {
       this->container = arr.data();
@@ -167,7 +179,7 @@ namespace tensor
       return *this;
     }
 
-    template <typename T, size_t N>
+    template <details::ConvertibleAsPointer<pointer> T, size_t N>
     TENSOR_FUNC TensorView &operator=(std::array<T, N> &arr)
     {
       this->container = arr.data();
@@ -186,7 +198,7 @@ namespace tensor
      *
      * @details Caveat: the order of the other tensor must be less than or equal to the order of the TensorView.
      */
-    template <typename TensorType>
+    template <details::HasConvertibleData<pointer> TensorType>
     TENSOR_FUNC TensorView &operator=(TensorType &tensor)
     {
       constexpr size_t R = TensorType::order();
@@ -195,9 +207,6 @@ namespace tensor
 
       return *this;
     }
-
-    template <typename TensorType>
-    TensorView &operator=(TensorType &&tensor) = delete; // avoids dangling references
 
     template <TENSOR_INT_LIKE... Sizes>
     TENSOR_FUNC TensorView &reshape(Sizes... new_shape)
