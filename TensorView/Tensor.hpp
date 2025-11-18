@@ -48,13 +48,13 @@ namespace tensor
     /// @brief implicit conversion to scalar*
     TENSOR_FUNC operator pointer()
     {
-      return this->container.data();
+      return this->data();
     }
 
     /// @brief implicit conversion to scalar*
     TENSOR_FUNC operator const_pointer() const
     {
-      return this->container.data();
+      return this->data();
     }
 
     /// @brief returns the externally managed array
