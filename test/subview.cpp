@@ -1,90 +1,85 @@
-#include "TensorView.hpp"
-
-#include <iostream>
-
+#include "test.hpp"
 using namespace tensor;
+
+template <typename T>
+int test_subview(T &x)
+{
+   int n_fails = 0;
+
+   for (auto &val : x)
+      val = rand();
+
+   auto subview = x.at(All(), 2, Span(0, 1), Span(2, 4));
+
+   if (subview.numDims() != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " fancy indexing produced view with wrong number of dimensions."
+                << " Expected 3, got " << subview.numDims() << "." << std::endl;
+      n_fails++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]")
+                << " fancy indexing produced view with correct number of dimensions." << std::endl;
+   }
+
+   bool mismatch_found = false;
+   for (int i = 0; i < 5; ++i)
+   {
+      for (int j = 0; j < 1; ++j)
+      {
+         for (int k = 0; k < 2; ++k)
+         {
+            if (subview.at(i, j, k) != x.at(i, 2, j, 2 + k))
+            {
+               mismatch_found = true;
+               break;
+            }
+         }
+      }
+   }
+
+   if (mismatch_found)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " fancy indexing produced incorrect view." << std::endl;
+      n_fails++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " fancy indexing produced incorrect view." << std::endl;
+   }
+
+   return n_fails;
+}
+
+int test_tensor_subview()
+{
+   auto tensor = makeTensor<double>(5, 10, 2, 5);
+   return test_subview(tensor);
+}
+
+int test_tensorview_subview()
+{
+   double data[500];
+   TensorView<double, 4> tensor_view(data, 5, 10, 2, 5);
+   return test_subview(tensor_view);
+}
 
 int main()
 {
-  double data[500];
-  for (int i = 0; i < 500; i++)
-  {
-    data[i] = static_cast<double>(rand()) / RAND_MAX;
-  }
+   int n_fails = 0;
 
-  TensorView<double, 4> tensor_view(data, 5, 10, 2, 5);
-  FixedTensorView<double, 5, 10, 2, 5> fixed_tensor_view(data);
-  Tensor<double, 4> tensor = make_tensor<double>(5, 10, 2, 5);
-  FixedTensor<double, 5, 10, 2, 5> fixed_tensor;
+   n_fails += test_tensor_subview();
+   n_fails += test_tensorview_subview();
 
-  for (double &val : tensor)
-    val = static_cast<double>(rand()) / RAND_MAX;
-  for (double &val : fixed_tensor)
-    val = static_cast<double>(rand()) / RAND_MAX;
+   if (n_fails == 0)
+   {
+      std::cout << ColorText::green("subview.cpp: All tests passed.") << std::endl;
+   }
+   else
+   {
+      std::cout << ColorText::red(std::format("subview.cpp: {} tests failed.", n_fails)) << std::endl;
+   }
 
-  auto tensor_subview = tensor.at(all{}, 2, span(0, 1), span(2, 4));
-  auto fixed_tensor_subview = fixed_tensor.at(all{}, 2, span(0, 1), span(2, 4));
-  auto tensor_view_subview = tensor_view.at(all{}, 2, span(0, 1), span(2, 4));
-  auto fixed_tensor_view_subview = fixed_tensor_view.at(all{}, 2, span(0, 1), span(2, 4));
-
-  int fails = 0;
-
-  for (int i = 0; i < 5; i++)
-  {
-    for (int j = 0; j < 1; ++j)
-    {
-      for (int k = 0; k < 2; ++k)
-      {
-        std::cout << "tensor_subview.at(" << i << ", " << j << ", " << k << ") = " << tensor_subview.at(i, j, k) << " ?= " << tensor.at(i, 2, j, 2 + k) << std::endl;
-        fails += tensor_subview.at(i, j, k) != tensor.at(i, 2, j, 2 + k);
-      }
-    }
-  }
-
-  for (int i = 0; i < 5; i++)
-  {
-    for (int j = 0; j < 1; ++j)
-    {
-      for (int k = 0; k < 2; ++k)
-      {
-        std::cout << "fixed_tensor_subview.at(" << i << ", " << j << ", " << k << ") = " << fixed_tensor_subview.at(i, j, k) << " ?= " << fixed_tensor.at(i, 2, j, 2 + k) << std::endl;
-        fails += fixed_tensor_subview.at(i, j, k) != fixed_tensor.at(i, 2, j, 2 + k);
-      }
-    }
-  }
-
-  for (int i = 0; i < 5; i++)
-  {
-    for (int j = 0; j < 1; ++j)
-    {
-      for (int k = 0; k < 2; ++k)
-      {
-        std::cout << "tensor_view_subview.at(" << i << ", " << j << ", " << k << ") = " << tensor_view_subview.at(i, j, k) << " ?= " << tensor_view.at(i, 2, j, 2 + k) << std::endl;
-        fails += tensor_view_subview.at(i, j, k) != tensor_view.at(i, 2, j, 2 + k);
-      }
-    }
-  }
-
-  for (int i = 0; i < 5; i++)
-  {
-    for (int j = 0; j < 1; ++j)
-    {
-      for (int k = 0; k < 2; ++k)
-      {
-        std::cout << "fixed_tensor_view_subview.at(" << i << ", " << j << ", " << k << ") = " << fixed_tensor_view_subview.at(i, j, k) << " ?= " << fixed_tensor_view.at(i, 2, j, 2 + k) << std::endl;
-        fails += fixed_tensor_view_subview.at(i, j, k) != fixed_tensor_view.at(i, 2, j, 2 + k);
-      }
-    }
-  }
-
-  if (fails)
-  {
-    std::cout << "Subview test failed!" << std::endl;
-  }
-  else
-  {
-    std::cout << "Subview test passed!" << std::endl;
-  }
-
-  return fails;
+   return n_fails;
 }

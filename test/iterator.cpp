@@ -1,63 +1,140 @@
-#include "TensorView.hpp"
-
-#include <iostream>
-
+#include "test.hpp"
 using namespace tensor;
 
 template <typename T>
-void check_iterator_concepts(const std::string &name)
+int test_iterator_traits(const std::string &name)
 {
-  static_assert(std::ranges::random_access_range<const T>);
-  static_assert(std::ranges::output_range<T, typename T::value_type>);
+   int n_fails = 0;
 
-  if constexpr (T::is_contiguous())
-    static_assert(std::ranges::contiguous_range<const T>);
+   if (std::ranges::random_access_range<const T>)
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::const_iterator is a random access iterator."
+                << std::endl;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::const_iterator is NOT a random access iterator."
+                << std::endl;
+      n_fails++;
+   }
 
-  std::cout << name << "::iterator and " << name << "::const_iterator satisfy iterator traits." << std::endl;
+   if (std::ranges::output_range<T, typename T::value_type>)
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::iterator is an output iterator." << std::endl;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::iterator is NOT an output iterator." << std::endl;
+      n_fails++;
+   }
+
+   if constexpr (details::TensorTraits<T>::contiguous())
+   {
+      if (std::ranges::contiguous_range<const T>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name
+                   << "::const_iterator is a contiguous iterator as expected." << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name
+                   << "::const_iterator is NOT a contiguous iterator but it should be." << std::endl;
+         n_fails++;
+      }
+   }
+
+   return n_fails;
+}
+
+int test_tensorview_iterator()
+{
+   int n_fails = 0;
+
+   int data[500];
+   for (int i = 0; i < 500; i++)
+      data[i] = rand();
+
+   auto tensor_view = reshape(data, 5, 10, 2, 5);
+
+   int position = 0;
+   for (auto v : tensor_view)
+   {
+      if (v != data[position])
+      {
+         n_fails++;
+         break;
+      }
+      position++;
+   }
+
+   if (n_fails == 0)
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " TensorView iterator works correctly." << std::endl;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " TensorView iterator failed!" << std::endl;
+   }
+
+   return n_fails;
+}
+
+int test_tensor_iterator()
+{
+   int n_fails = 0;
+   Tensor<int, 4> tensor(5, 10, 2, 5);
+
+   for (index_t i = 0; i < tensor.size(); i++)
+   {
+      tensor.data()[i] = rand();
+   }
+
+   int position = 0;
+   for (auto v : tensor)
+   {
+      if (v != tensor.data()[position])
+      {
+         n_fails++;
+         break;
+      }
+      position++;
+   }
+
+   if (n_fails == 0)
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Tensor iterator works correctly." << std::endl;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Tensor iterator failed!" << std::endl;
+   }
+
+   return n_fails;
 }
 
 int main()
 {
-  check_iterator_concepts<Tensor<double, 1>>("Tensor");
-  check_iterator_concepts<TensorView<double, 1>>("TensorView");
-  check_iterator_concepts<FixedTensor<double, 1, 2>>("FixedTensor");
-  check_iterator_concepts<FixedTensorView<double, 3, 3>>("FixedTensorView");
-  check_iterator_concepts<SimpleSubView<double, 1>>("SubView");
-  check_iterator_concepts<SimpleSubView<double, 2>>("SubView");
+   int n_fails = 0;
 
-  double data[500];
-  for (int i = 0; i < 500; i++)
-  {
-    data[i] = static_cast<double>(rand()) / RAND_MAX;
-  }
+   n_fails += test_iterator_traits<TensorView<double, 3>>("TensorView<double, 3>");
+   n_fails += test_iterator_traits<Tensor<double, 4>>("FixedTensorView<double, 4>");
+   n_fails += test_iterator_traits<PView<int, 2, LinearOrder::C, MemorySpace::Host>>("PView<int, 2>");
 
-  TensorView<double, 4> tensor_view(data, 5, 10, 2, 5);
-  FixedTensorView<double, 5, 10, 2, 5> fixed_tensor_view(data);
+   using StridedPView = details::PersistentView<details::StridedShape<3>, int, MemorySpace::Host, false>;
+   n_fails += test_iterator_traits<StridedPView>("StridedPView<int, 3>");
 
-  int fails = 0;
+   using StridedRawView = details::RawView<details::StridedShape<2>, float, MemorySpace::Host>;
+   n_fails += test_iterator_traits<StridedRawView>("StridedRawView<float, 2>");
 
-  int position = 0;
-  for (auto it = tensor_view.begin(); it != tensor_view.end(); it++)
-  {
-    fails += *it != data[position];
-    position++;
-  }
+   n_fails += test_tensorview_iterator();
+   n_fails += test_tensor_iterator();
 
-  position = 0;
-  for (auto it = fixed_tensor_view.begin(); it != fixed_tensor_view.end(); it++)
-  {
-    fails += *it != data[position];
-    position++;
-  }
-
-  if (fails)
-  {
-    std::cout << "Iterator test failed!" << std::endl;
-  }
-  else
-  {
-    std::cout << "Iterator test passed!" << std::endl;
-  }
-
-  return fails;
+   if (n_fails == 0)
+   {
+      std::cout << ColorText::green("iterator.cpp: All tests passed!") << std::endl;
+   }
+   else
+   {
+      std::cout << ColorText::red(std::format("iterator.cpp: {} tests failed!", n_fails)) << std::endl;
+   }
 }

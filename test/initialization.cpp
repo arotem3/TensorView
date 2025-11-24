@@ -1,60 +1,303 @@
-#include "TensorView.hpp"
-
-#include <iostream>
-#include <cassert>
+#include "test.hpp"
 
 using namespace tensor;
 
+int test_tensorview_initialization()
+{
+   int n_failed = 0;
+   double data[6] = {1, 2, 3, 4, 5, 6};
+
+   TensorView<double, 2> t(data, 2, 3);
+
+   if (t.shape(0) != 2 || t.shape(1) != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " TensorView initialization failed: incorrect shape."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " TensorView initialization passed." << std::endl;
+   }
+
+   if (t.size() != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " TensorView initialization failed: incorrect size." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " TensorView size check passed." << std::endl;
+   }
+
+   if (t.data() != data)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " TensorView initialization failed: incorrect data pointer."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " TensorView data pointer check passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+int test_tensor_initialization()
+{
+   int n_failed = 0;
+   Tensor<double, 2> tensor(2, 3);
+
+   if (tensor.shape(0) != 2 || tensor.shape(1) != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Tensor initialization failed: incorrect shape." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Tensor initialization passed." << std::endl;
+   }
+
+   if (tensor.size() != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Tensor initialization failed: incorrect size." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Tensor size check passed." << std::endl;
+   }
+
+   Tensor<double, 3> tensor3(2, 3);
+   if (tensor3.shape(0) != 2 || tensor3.shape(1) != 3 || tensor3.shape(2) != 1)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]")
+                << " Tensor initialization with trailing singleton dimension failed: incorrect shape." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]")
+                << " Tensor initialization with trailing singleton dimension passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+int test_tensorview_conversion()
+{
+   int n_failed = 0;
+
+   Tensor<double, 2> tensor(2, 3);
+
+   auto correct_conversion = [&tensor](auto &tv)
+   {
+      return (tv.data() == tensor.data() && tv.size() == tensor.size() && tv.shape(0) == tensor.shape(0) &&
+              tv.shape(1) == tensor.shape(1));
+   };
+
+#define __CHECK_CONV(expr, explain)                                                              \
+   {                                                                                             \
+      TensorView<double, 2> tv = expr;                                                           \
+      if (!correct_conversion(tv))                                                               \
+      {                                                                                          \
+         std::cout << "\t" << ColorText::red("[ ✗ ]") << " Implicit conversion << " << explain   \
+                   << " to non-const TensorView failed." << std::endl;                           \
+         n_failed++;                                                                             \
+      }                                                                                          \
+      else                                                                                       \
+      {                                                                                          \
+         std::cout << "\t" << ColorText::green("[ ✓ ]") << " Implicit conversion << " << explain \
+                   << " to non-const TensorView passed." << std::endl;                           \
+      }                                                                                          \
+                                                                                                 \
+      TensorView<const double, 2> ctv = expr;                                                    \
+      if (!correct_conversion(ctv))                                                              \
+      {                                                                                          \
+         std::cout << "\t" << ColorText::red("[ ✗ ]") << " Implicit conversion << " << explain   \
+                   << " to const TensorView failed." << std::endl;                               \
+         n_failed++;                                                                             \
+      }                                                                                          \
+      else                                                                                       \
+      {                                                                                          \
+         std::cout << "\t" << ColorText::green("[ ✓ ]") << " Implicit conversion << " << explain \
+                   << " to const TensorView passed." << std::endl;                               \
+      }                                                                                          \
+   }
+
+   __CHECK_CONV(tensor, "from Tensor");
+   __CHECK_CONV(tensor.raw(), "from raw()");
+   __CHECK_CONV(tensor.view(), "from view()");
+
+   return n_failed;
+}
+
+int test_pview_initialization()
+{
+   int n_failed = 0;
+   Tensor<double, 2> tensor(2, 3);
+
+   auto pview = tensor.view();
+
+   if (pview.shape(0) != 2 || pview.shape(1) != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " PersistentView initialization failed: incorrect shape."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " PersistentView initialization passed." << std::endl;
+   }
+
+   if (pview.size() != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " PersistentView initialization failed: incorrect size."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " PersistentView size check passed." << std::endl;
+   }
+
+   if (pview.data() != tensor.data())
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " PersistentView initialization failed: incorrect data pointer."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " PersistentView data pointer check passed." << std::endl;
+   }
+
+   auto pview_const = std::as_const(tensor).view();
+
+   if (pview_const.shape(0) != 2 || pview_const.shape(1) != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Const PersistentView initialization failed: incorrect shape."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Const PersistentView initialization passed." << std::endl;
+   }
+
+   if (pview_const.size() != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Const PersistentView initialization failed: incorrect size."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Const PersistentView size check passed." << std::endl;
+   }
+
+   if (pview_const.data() != tensor.data())
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]")
+                << " Const PersistentView initialization failed: incorrect data pointer." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Const PersistentView data pointer check passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+int test_lowD_to_highD()
+{
+   int n_failed = 0;
+   Tensor<double, 2> tensor(2, 3);
+
+   TensorView<double, 3> view3d_of_2d = tensor;
+   if (view3d_of_2d.shape(0) != 2 || view3d_of_2d.shape(1) != 3 || view3d_of_2d.shape(2) != 1)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]")
+                << " TensorView initialization with trailing singleton dimension failed: incorrect shape." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]")
+                << " TensorView initialization with trailing singleton dimension passed." << std::endl;
+   }
+
+   Tensor<double, 3> tensor3d_from_2d = tensor;
+   if (tensor3d_from_2d.shape(0) != 2 || tensor3d_from_2d.shape(1) != 3 || tensor3d_from_2d.shape(2) != 1)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]")
+                << " Tensor initialization with trailing singleton dimension failed: incorrect shape." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]")
+                << " Tensor initialization with trailing singleton dimension passed." << std::endl;
+   }
+
+   PView<double, 3, LinearOrder::F, MemorySpace::Host> pview3d_of_2d = tensor;
+   if (pview3d_of_2d.shape(0) != 2 || pview3d_of_2d.shape(1) != 3 || pview3d_of_2d.shape(2) != 1)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]")
+                << " PersistentView initialization with trailing singleton dimension failed: incorrect shape."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]")
+                << " PersistentView initialization with trailing singleton dimension passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+int test_copy_shape()
+{
+   int n_failed = 0;
+
+   Tensor<double, 2> tensor(2, 3);
+
+   auto like = makeTensorLike(tensor);
+   if (like.shape(0) != tensor.shape(0) || like.shape(1) != tensor.shape(1))
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " makeTensorLike failed: shape mismatch." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " makeTensorLike passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
 int main()
 {
-  double data[6] = {1, 2, 3, 4, 5, 6};
+   int n_failed = 0;
 
-  std::cout << "Initializing TensorView object..." << std::endl;
-  TensorView<double, 2> tensor_view(data, 2, 3);
+   n_failed += test_tensorview_initialization();
+   n_failed += test_tensor_initialization();
+   n_failed += test_tensorview_conversion();
+   n_failed += test_pview_initialization();
+   n_failed += test_lowD_to_highD();
+   n_failed += test_copy_shape();
 
-  std::cout << "Initializing FixedTensorView object..." << std::endl;
-  FixedTensorView<double, 2, 3> fixed_tensor_view(data);
+   if (n_failed == 0)
+   {
+      std::cout << ColorText::green("initialization.cpp: All tests passed!") << std::endl;
+   }
+   else
+   {
+      std::cout << ColorText::red(std::format("initialization.cpp: {} tests failed.", n_failed)) << std::endl;
+   }
 
-  std::cout << "Initializing Tensor object..." << std::endl;
-  Tensor<double, 2> tensor = make_tensor<double>(2, 3);
-
-  std::cout << "Initializing FixedTensor object..." << std::endl;
-  FixedTensor<double, 2, 3> fixed_tensor;
-
-  std::cout << "Implicit conversion from Tensor to TensorView..." << std::endl;
-  Tensor<float, 2> t(2, 3);
-
-  TensorView<float, 2> view1(t); // OK
-  view1 = make_view(t);          // OK
-
-  TensorView<const float, 2> view2(t); // OK
-  view2 = make_view(t);                // OK
-
-  const Tensor<float, 2> ct(2, 3);
-  TensorView<const float, 2> view3(ct); // OK
-  view3 = make_view(ct);                // OK
-
-  // TensorView<float, 2> view4(ct);     // Error: ct is const
-  // TensorView<float, 2> view5 = make_view(ct); // Error: ct is const
-  // TensorView<float, 2> view6(Tensor<float, 2>(1,1)); // Error: dangling reference
-  // TensorView<float, 2> view7 = make_view(Tensor<float, 2>{}); // Error: view7 is dangling reference
-
-  std::cout << "Initialize with lower dimension..." << std::endl;
-  Tensor<double, 3> tensor3(2, 3);
-  assert(tensor3.shape(0) == 2);
-  assert(tensor3.shape(1) == 3);
-  assert(tensor3.shape(2) == 1);
-
-  TensorView<float, 3> view3d_of_2d(t);
-  assert(view3d_of_2d.shape(0) == 2);
-  assert(view3d_of_2d.shape(1) == 3);
-  assert(view3d_of_2d.shape(2) == 1);
-
-  std::cout << "Initializing by copying shape..." << std::endl;
-  auto like = make_tensor_like(view1);
-  assert(like.shape(0) == view1.shape(0));
-  assert(like.shape(1) == view1.shape(1));
-
-  std::cout << "Initialization test passed!" << std::endl;
-  return 0;
+   return n_failed;
 }

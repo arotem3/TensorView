@@ -1,13 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(tensor_view
-  DESCRIPTION
-  "TensorView is a single header template library defining the class TensorView which is used to structure \
-  contiguous arrays into tensor-like objects (like numpy's `ndarray`) whose rank (dimension) is known at compile time.\
-  The TensorView is a trivial class and only stores the pointer to the start of the array and the shape of the tensor.\
-  The TensorView object can also be used in CUDA code by enabling the USE_CUDA option.\
-  Since the TensorView object is trivial, it can wrap device pointers and passed by value to a CUDA __global__ function."
-  VERSION 1.0
+project(TensorView
+  DESCRIPTION "TensorView: A C++ Template Library for Multi-Dimensional Arrays and Views with Optional CUDA Support."
+  VERSION 2.0
   LANGUAGES CXX
 )
 
@@ -19,42 +14,117 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-option(USE_CUDA "Add CUDA language features so that TensorView can be used in __host__ or __device__ code spaces." OFF)
-option(TENSOR_ALWAYS_MUTABLE
-  "If enabled, data managed by a TensorView object is writeable even when the object is const qualified. \
-  If disabled, the data is only readable when the TensorView is const qualified."
-  OFF
+option(TENSOR_USE_CUDA "Enable CUDA support" OFF)
+option(TENSOR_USE_64BIT_INDEX "Use 64-bit index type" OFF)
+
+# ------------------------------------------------------------------------------
+# Library target
+# ------------------------------------------------------------------------------
+add_library(TensorView INTERFACE)
+
+target_sources(TensorView
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp>
 )
-option(TENSOR_DEBUG "Enables bound checks for indexing into TensorView objects." OFF)
 
-add_library(tensor_view INTERFACE)
-target_sources(tensor_view INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp)
-target_include_directories(tensor_view INTERFACE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/TensorView)
+target_include_directories(TensorView
+  INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<INSTALL_INTERFACE:include>
+)
 
-message("build = ${CMAKE_BUILD_TYPE}")
-string(TOLOWER ${CMAKE_BUILD_TYPE} build_type)
-if ((build_type STREQUAL debug) OR TENSOR_DEBUG)
-    target_compile_definitions(tensor_view INTERFACE TENSOR_DEBUG)
+if (TENSOR_USE_64BIT_INDEX)
+  target_compile_definitions(TensorView INTERFACE TENSOR_USE_64BIT_INDEX)
 endif()
 
-if (USE_CUDA)
-  target_compile_definitions(tensor_view INTERFACE TENSOR_USE_CUDA)
+# ------------------------------------------------------------------------------
+# CUDA support
+# ------------------------------------------------------------------------------
+set(TENSORVIEW_PKGCONFIG_LIBS "")
+
+if (TENSOR_USE_CUDA)
   enable_language(CUDA)
+  find_package(CUDAToolkit 12 REQUIRED)
+
+  if (CUDAToolkit_FOUND)
+    target_compile_definitions(TensorView INTERFACE TENSOR_USE_CUDA)
+    target_link_libraries(TensorView INTERFACE CUDA::cudart)
+    target_compile_options(TensorView INTERFACE --extended-lambda --expt-relaxed-constexpr)
+
+    set(TENSORVIEW_PKGCONFIG_LIBS "-lcudart")
+  endif()
 endif()
 
-if (TENSOR_ALWAYS_MUTABLE)
-  target_compile_definitions(tensor_view INTERFACE TENSOR_ALWAYS_MUTABLE)
-endif()
+# ------------------------------------------------------------------------------
+# Installation
+# ------------------------------------------------------------------------------
+include(GNUInstallDirs)
 
-target_compile_options(tensor_view INTERFACE -Wall -Wextra)
+# Install full TensorView directory of headers
+install(
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/TensorView
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
-install(TARGETS tensor_view EXPORT tensor_view_config)
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/TensorView DESTINATION include)
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp DESTINATION include)
-export(EXPORT tensor_view_config
-  NAMESPACE tensor_view::
-  FILE tensor_view_config.cmake)
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/TensorView.hpp
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
 
+# Export interface target
+install(
+  TARGETS TensorView
+  EXPORT TensorViewTargets
+)
+
+# ------------------------------------------------------------------------------
+# CMake package config
+# ------------------------------------------------------------------------------
+include(CMakePackageConfigHelpers)
+
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/TensorViewConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/TensorViewConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/TensorViewConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TensorView
+)
+
+install(
+  FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/TensorViewConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/TensorViewConfigVersion.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TensorView
+)
+
+install(
+  EXPORT TensorViewTargets
+  FILE TensorViewTargets.cmake
+  NAMESPACE TensorView::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/TensorView
+)
+
+# ------------------------------------------------------------------------------
+# pkg-config file generation
+# ------------------------------------------------------------------------------
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/TensorView.pc.in
+  ${CMAKE_CURRENT_BINARY_DIR}/TensorView.pc
+  @ONLY
+)
+
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/TensorView.pc
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+)
+
+# ------------------------------------------------------------------------------
+# Tests
+# ------------------------------------------------------------------------------
 enable_testing()
 
 file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp")
@@ -62,8 +132,17 @@ file(GLOB TEST_FILES "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp")
 foreach(test_file ${TEST_FILES})
   get_filename_component(test_name ${test_file} NAME_WE)
   add_executable(${test_name} ${test_file})
-  set_target_properties(${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test)
-  target_link_libraries(${test_name} tensor_view)
-  target_include_directories(${test_name} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+  if (TENSOR_USE_CUDA)
+    set_target_properties(${test_name} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+  endif()
+
+  set_target_properties(${test_name} PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/test
+  )
+
+  target_link_libraries(${test_name} PRIVATE TensorView)
+  target_compile_options(${test_name} PRIVATE -Wall -Wextra)
+
   add_test(NAME ${test_name} COMMAND ${test_name})
 endforeach()

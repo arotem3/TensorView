@@ -1,23 +1,43 @@
-#ifndef __TENSOR_VIEW_HPP__
-#define __TENSOR_VIEW_HPP__
+#pragma once
+#include "TensorView/Access/Iterator.hpp"
+#include "TensorView/Access/MakeView.hpp"
+#include "TensorView/Access/Span.hpp"
+#include "TensorView/Containers/ContainerTraits.hpp"
+#include "TensorView/Containers/OwningContainer.hpp"
+#include "TensorView/Containers/ViewContainer.hpp"
+#include "TensorView/Macros.hpp"
+#include "TensorView/Shapes/CompareShapes.hpp"
+#include "TensorView/Shapes/LinearOrder.hpp"
+#include "TensorView/Shapes/ShapeTraits.hpp"
+#include "TensorView/Shapes/StandardShape.hpp"
+#include "TensorView/Shapes/StridedShape.hpp"
+#include "TensorView/Tensors/PersistentView.hpp"
+#include "TensorView/Tensors/RawView.hpp"
+#include "TensorView/Tensors/TView.hpp"
+#include "TensorView/Tensors/Tensor.hpp"
+#include "TensorView/Tensors/TensorTraits.hpp"
+#include "TensorView/Tensors/makeTensor.hpp"
+#include "TensorView/Utility/Copy.hpp"
+#include "TensorView/Utility/Memory.hpp"
+#include "TensorView/Utility/Reshape.hpp"
 
-#include "TensorView/tensorview_config.hpp"
-#include "TensorView/errors.hpp"
-#include "TensorView/ContainerTraits.hpp"
-#include "TensorView/TensorTraits.hpp"
-#include "TensorView/span.hpp"
-#include "TensorView/DynamicTensorShape.hpp"
-#include "TensorView/FixedTensorShape.hpp"
-#include "TensorView/StridedShape.hpp"
-#include "TensorView/ViewContainer.hpp"
-#include "TensorView/BaseTensor.hpp"
-#include "TensorView/DynamicTensorView.hpp"
-#include "TensorView/FixedTensorView.hpp"
-#include "TensorView/SubView.hpp"
-#include "TensorView/FixedTensor.hpp"
-#include "TensorView/Tensor.hpp"
-#include "TensorView/reshape.hpp"
-#include "TensorView/Transformer.hpp"
-#include "TensorView/named_tensors.hpp"
+namespace tensor
+{
+   template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>
+   using VectorView = TensorView<scalar, 1, MemSpace>;
 
-#endif
+   template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>
+   using MatrixView = TensorView<scalar, 2, MemSpace>;
+
+   template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>
+   using CubeView = TensorView<scalar, 3, MemSpace>;
+
+   template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>
+   using Vector = Tensor<scalar, 1, MemSpace>;
+
+   template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>
+   using Matrix = Tensor<scalar, 2, MemSpace>;
+
+   template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>
+   using Cube = Tensor<scalar, 3, MemSpace>;
+} // namespace tensor
