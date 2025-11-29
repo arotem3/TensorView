@@ -49,7 +49,7 @@ if (TENSOR_USE_CUDA)
   if (CUDAToolkit_FOUND)
     target_compile_definitions(TensorView INTERFACE TENSOR_USE_CUDA)
     target_link_libraries(TensorView INTERFACE CUDA::cudart)
-    target_compile_options(TensorView INTERFACE --extended-lambda --expt-relaxed-constexpr)
+    target_compile_options(TensorView INTERFACE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda --expt-relaxed-constexpr>)
 
     set(TENSORVIEW_PKGCONFIG_LIBS "-lcudart")
   endif()
@@ -134,6 +134,7 @@ foreach(test_file ${TEST_FILES})
   add_executable(${test_name} ${test_file})
 
   if (TENSOR_USE_CUDA)
+    set_source_files_properties(${test_file} PROPERTIES LANGUAGE CUDA)
     set_target_properties(${test_name} PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
   endif()
 
