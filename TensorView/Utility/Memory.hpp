@@ -11,9 +11,10 @@ namespace tensor
    {
       Host, // Memory explicitly on the host
 #ifdef TENSOR_USE_CUDA
-      Device, // Memory on a device (e.g., GPU) if available, otherwise on the host (for compatibility)
-      Managed // Unified memory accessible from both host and device
+      Device,  // Memory on a device (e.g., GPU) if available, otherwise on the host (for compatibility)
+      Managed, // Unified memory accessible from both host and device
 #endif
+      Unspecified // Unspecified memory space. Cannot be used for allocations. Allows for unsafe access.
    };
 
    inline constexpr const char *memorySpaceToString(MemorySpace ms)
@@ -28,6 +29,8 @@ namespace tensor
          case MemorySpace::Managed:
             return "Managed";
 #endif
+         case MemorySpace::Unspecified:
+            return "Unspecified";
          default:
             return "Unknown";
       }
@@ -37,6 +40,8 @@ namespace tensor
    template <typename T, MemorySpace m = MemorySpace::Host>
    inline T *allocate(size_t n)
    {
+      static_assert(m != MemorySpace::Unspecified, "Cannot allocate memory in Unspecified memory space.");
+
       if (n == 0)
          return nullptr;
 
@@ -81,6 +86,8 @@ namespace tensor
    template <typename T, MemorySpace m = MemorySpace::Host>
    inline T *deallocate(T *ptr)
    {
+      static_assert(m != MemorySpace::Unspecified, "Cannot deallocate memory in Unspecified memory space.");
+
       if (ptr == nullptr)
          return nullptr;
 
@@ -108,6 +115,8 @@ namespace tensor
    template <typename T, MemorySpace m = MemorySpace::Host>
    class allocator
    {
+      static_assert(m != MemorySpace::Unspecified, "Cannot use allocator with Unspecified memory space.");
+
    public:
       using value_type = T;
       using pointer = T *;
@@ -147,6 +156,8 @@ namespace tensor
    template <typename T, MemorySpace m = MemorySpace::Host>
    class deleter
    {
+      static_assert(m != MemorySpace::Unspecified, "Cannot use deleter with Unspecified memory space.");
+
    public:
       static constexpr MemorySpace memory_space = m;
 
@@ -170,6 +181,9 @@ namespace tensor
    {
       if (n == 0 || ptr == nullptr || from == to || to == MemorySpace::Managed)
          return;
+
+      TENSOR_CHECK(to != MemorySpace::Unspecified,
+                   printf("synchronizeMemory: cannot synchronize to Unspecified memory space\n"));
 
       TENSOR_CHECK(from == MemorySpace::Managed,
                    printf("synchronizeMemory: unsupported memory synchronization from %s to %s\n",
@@ -215,26 +229,27 @@ namespace tensor::details
    inline constexpr bool compatibleMemorySpaces(MemorySpace a, MemorySpace b)
    {
 #ifdef TENSOR_USE_CUDA
-      return (a == MemorySpace::Managed || b == MemorySpace::Managed || a == b);
+      return (a == MemorySpace::Managed || b == MemorySpace::Managed || a == b) ||
+             (a == MemorySpace::Unspecified || b == MemorySpace::Unspecified);
 #else
-      return a == MemorySpace::Host && b == MemorySpace::Host;
+      return (a == MemorySpace::Host || a == MemorySpace::Unspecified) &&
+             (b == MemorySpace::Host || b == MemorySpace::Unspecified);
 #endif
    }
 } // namespace tensor::details
 
 #ifdef TENSOR_USE_CUDA
 #ifdef TENSOR_DEVICE_CODE
-#define TENSOR_DEBUG_VERIFY_MEMORY_SPACE(mem_space)                                                           \
-   TENSOR_DEBUG_ASSERT(mem_space == tensor::MemorySpace::Device || mem_space == tensor::MemorySpace::Managed, \
+#define TENSOR_DEBUG_VERIFY_MEMORY_SPACE(mem_space)            \
+   TENSOR_DEBUG_ASSERT(mem_space != tensor::MemorySpace::Host, \
                        printf("Attempting to access Host memory from Device code.\n"))
 #else
-#define TENSOR_DEBUG_VERIFY_MEMORY_SPACE(mem_space)                                                         \
-   TENSOR_DEBUG_ASSERT(mem_space == tensor::MemorySpace::Host || mem_space == tensor::MemorySpace::Managed, \
+#define TENSOR_DEBUG_VERIFY_MEMORY_SPACE(mem_space)              \
+   TENSOR_DEBUG_ASSERT(mem_space != tensor::MemorySpace::Device, \
                        printf("Attempting to access Device memory from Host code.\n"))
 #endif
 #else
-#define TENSOR_DEBUG_VERIFY_MEMORY_SPACE(mem_space) \
-   TENSOR_DEBUG_ASSERT(mem_space == tensor::MemorySpace::Host, printf("Invalid memory space.\n"))
+#define TENSOR_DEBUG_VERIFY_MEMORY_SPACE(mem_space) // not needed
 #endif
 
 #ifdef TENSOR_USE_CUDA
