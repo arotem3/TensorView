@@ -2,7 +2,7 @@
 
 using namespace tensor;
 
-int test_tensorview_initialization()
+static int test_tensorview_initialization()
 {
    int n_failed = 0;
    double data[6] = {1, 2, 3, 4, 5, 6};
@@ -44,7 +44,7 @@ int test_tensorview_initialization()
    return n_failed;
 }
 
-int test_tensor_initialization()
+static int test_tensor_initialization()
 {
    int n_failed = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -85,7 +85,7 @@ int test_tensor_initialization()
    return n_failed;
 }
 
-int test_tensorview_conversion()
+static int test_tensorview_conversion()
 {
    int n_failed = 0;
 
@@ -133,7 +133,7 @@ int test_tensorview_conversion()
    return n_failed;
 }
 
-int test_pview_initialization()
+static int test_pview_initialization()
 {
    int n_failed = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -211,7 +211,79 @@ int test_pview_initialization()
    return n_failed;
 }
 
-int test_lowD_to_highD()
+static int test_static_tensor_initialization()
+{
+   int n_failed = 0;
+   StaticTensor<double, 2, 3> stensor;
+
+   if (stensor.shape(0) != 2 || stensor.shape(1) != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " StaticTensor initialization failed: incorrect shape."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " StaticTensor initialization passed." << std::endl;
+   }
+
+   if (stensor.size() != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " StaticTensor initialization failed: incorrect size."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " StaticTensor size check passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+static int test_static_view_initialization()
+{
+   int n_failed = 0;
+
+   double data[6] = {1, 2, 3, 4, 5, 6};
+   StaticView<double, 2, 3> sview(data);
+
+   if (sview.shape(0) != 2 || sview.shape(1) != 3)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " StaticView initialization failed: incorrect shape."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " StaticView initialization passed." << std::endl;
+   }
+
+   if (sview.size() != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " StaticView initialization failed: incorrect size." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " StaticView size check passed." << std::endl;
+   }
+
+   if (sview.data() != data)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " StaticView initialization failed: incorrect data pointer."
+                << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " StaticView data pointer check passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+static int test_lowD_to_highD()
 {
    int n_failed = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -259,7 +331,7 @@ int test_lowD_to_highD()
    return n_failed;
 }
 
-int test_copy_shape()
+static int test_copy_shape()
 {
    int n_failed = 0;
 
@@ -287,6 +359,8 @@ int main()
    n_failed += test_tensor_initialization();
    n_failed += test_tensorview_conversion();
    n_failed += test_pview_initialization();
+   n_failed += test_static_tensor_initialization();
+   n_failed += test_static_view_initialization();
    n_failed += test_lowD_to_highD();
    n_failed += test_copy_shape();
 

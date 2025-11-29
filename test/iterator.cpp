@@ -2,7 +2,7 @@
 using namespace tensor;
 
 template <typename T>
-int test_iterator_traits(const std::string &name)
+static int test_iterator_traits(const std::string &name)
 {
    int n_fails = 0;
 
@@ -46,7 +46,7 @@ int test_iterator_traits(const std::string &name)
    return n_fails;
 }
 
-int test_tensorview_iterator()
+static int test_tensorview_iterator()
 {
    int n_fails = 0;
 
@@ -79,7 +79,7 @@ int test_tensorview_iterator()
    return n_fails;
 }
 
-int test_tensor_iterator()
+static int test_tensor_iterator()
 {
    int n_fails = 0;
    Tensor<int, 4> tensor(5, 10, 2, 5);
@@ -119,6 +119,8 @@ int main()
    n_fails += test_iterator_traits<TensorView<double, 3>>("TensorView<double, 3>");
    n_fails += test_iterator_traits<Tensor<double, 4>>("FixedTensorView<double, 4>");
    n_fails += test_iterator_traits<PView<int, 2, LinearOrder::C, MemorySpace::Host>>("PView<int, 2>");
+   n_fails += test_iterator_traits<StaticTensor<float, 2, 3>>("StaticTensor<float, 2, 3>");
+   n_fails += test_iterator_traits<StaticView<double, 1, 4>>("StaticView<double, 1, 4>");
 
    using StridedPView = details::PersistentView<details::StridedShape<3>, int, MemorySpace::Host, false>;
    n_fails += test_iterator_traits<StridedPView>("StridedPView<int, 3>");

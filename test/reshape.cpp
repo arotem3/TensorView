@@ -1,7 +1,7 @@
 #include "test.hpp"
 using namespace tensor;
 
-int test_tensor_reshape_inplace()
+static int test_tensor_reshape_inplace()
 {
    int n_fails = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -21,62 +21,35 @@ int test_tensor_reshape_inplace()
    return n_fails;
 }
 
-int test_reshape_pointer()
+template <typename T>
+static void *__data(T &obj)
 {
-   int n_fails = 0;
-   double data[6] = {1, 2, 3, 4, 5, 6};
-
-   auto reshaped_data = reshape(data, 2, 3);
-
-   if (reshaped_data.shape(0) != 2 || reshaped_data.shape(1) != 3 || reshaped_data.data() != data)
+   if constexpr (std::is_pointer_v<T>)
    {
-      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Failed to reshape pointer into TensorView.\n";
-      n_fails++;
+      return static_cast<void *>(obj);
    }
    else
    {
-      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Successfully reshaped pointer into TensorView.\n";
+      return static_cast<void *>(std::data(obj));
    }
-
-   return n_fails;
 }
 
-int test_reshape_tensorview()
+template <typename lambda>
+static int test_reshape(std::string name, lambda &&init)
 {
    int n_fails = 0;
-   double data[6] = {1, 2, 3, 4, 5, 6};
-   TensorView<double, 2> tensor_view(data, 2, 3);
 
-   auto reshaped_view = reshape(tensor_view, 3, 2);
+   auto data = init();
+   auto reshaped = reshape(data, 2, 3);
 
-   if (reshaped_view.shape(0) != 3 || reshaped_view.shape(1) != 2 || reshaped_view.data() != tensor_view.data())
+   if (reshaped.shape(0) != 2 || reshaped.shape(1) != 3 || reshaped.data() != __data(data))
    {
-      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Failed to reshape TensorView into TensorView.\n";
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Failed to reshape " << name << ".\n";
       n_fails++;
    }
    else
    {
-      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Successfully reshaped TensorView into TensorView.\n";
-   }
-
-   return n_fails;
-}
-
-int test_reshape_tensor()
-{
-   int n_fails = 0;
-   Tensor<double, 2> tensor(2, 3);
-
-   auto reshaped_view = reshape(tensor, 3, 2);
-
-   if (reshaped_view.shape(0) != 3 || reshaped_view.shape(1) != 2 || reshaped_view.data() != tensor.data())
-   {
-      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Failed to reshape Tensor into PersistentView.\n";
-      n_fails++;
-   }
-   else
-   {
-      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Successfully reshaped Tensor into PersistentView.\n";
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Successfully reshaped " << name << ".\n";
    }
 
    return n_fails;
@@ -87,9 +60,13 @@ int main()
    int n_failed = 0;
 
    n_failed += test_tensor_reshape_inplace();
-   n_failed += test_reshape_pointer();
-   n_failed += test_reshape_tensorview();
-   n_failed += test_reshape_tensor();
+   n_failed += test_reshape("pointer", []() { return new double[6]; });
+   n_failed += test_reshape("tensor", []() { return Tensor<double, 1>(6); });
+   n_failed += test_reshape("TensorView", []() { return TensorView<double, 1>(new double[6], 6); });
+   n_failed += test_reshape("std::array", []() { return std::array<double, 6>{}; });
+   n_failed += test_reshape("std::vector", []() { return std::vector<double>(6); });
+   n_failed += test_reshape("StaticTensor", []() { return StaticTensor<double, 6>(); });
+   n_failed += test_reshape("StaticView", []() { return StaticView<double, 6>(new double[6]); });
 
    if (n_failed == 0)
    {

@@ -54,14 +54,14 @@ int test_subview(T &x)
 
 int test_tensor_subview()
 {
-   auto tensor = makeTensor<double>(5, 10, 2, 5);
+   auto tensor = makeTensor<int>(5, 10, 2, 5);
    return test_subview(tensor);
 }
 
 int test_tensorview_subview()
 {
-   double data[500];
-   TensorView<double, 4> tensor_view(data, 5, 10, 2, 5);
+   int data[500];
+   TensorView<int, 4> tensor_view(data, 5, 10, 2, 5);
    return test_subview(tensor_view);
 }
 
