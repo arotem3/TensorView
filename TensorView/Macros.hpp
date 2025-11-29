@@ -38,9 +38,10 @@ namespace tensor
 #else
    using index_t = uint32_t;
 #endif
-} // namespace tensor
 
-#define TENSOR_INT_LIKE std::convertible_to<tensor::index_t> // concept for index-like types
+   template <typename T>
+   concept IndexLike = std::convertible_to<T, index_t>;
+} // namespace tensor
 
 #ifdef __CUDA_ARCH__
 #define TENSOR_DEVICE_CODE

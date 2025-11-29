@@ -1,4 +1,5 @@
 #pragma once
+#include "TensorView/Access/SimplifyIndex.hpp"
 #include "TensorView/Access/Span.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Shapes/LinearOrder.hpp"
@@ -9,11 +10,12 @@ namespace tensor::details
    template <index_t NumDims, LinearOrder Order>
    class StandardShape
    {
+      static_assert(NumDims > 0, "StandardShape must have a non-zero number of dimensions.");
+
    public:
       static constexpr LinearOrder linear_order = Order;
 
    private:
-      index_t _offset;
       std::array<index_t, NumDims> _shape;
 
       friend struct ShapeTraits<StandardShape<NumDims, Order>>;
@@ -25,10 +27,9 @@ namespace tensor::details
       constexpr StandardShape(const StandardShape &) = default;
       constexpr StandardShape &operator=(const StandardShape &) = default;
 
-      template <TENSOR_INT_LIKE... Shape>
-      TENSOR_FUNC explicit StandardShape(Shape... shape_) : _offset{0}, _shape{static_cast<index_t>(shape_)...}
+      template <IndexLike... Shape>
+      TENSOR_FUNC explicit StandardShape(Shape... shape_) : _shape{static_cast<index_t>(shape_)...}
       {
-         static_assert(NumDims > 0, "StandardShape must have a non-zero number of dimensions.");
          static_assert(sizeof...(shape_) <= NumDims,
                        "Too many dimensions specified for StandardShape of given number of dimensions.");
 
@@ -72,16 +73,25 @@ namespace tensor::details
          return size();
       }
 
+      /**
+       * @brief returns the offset in memory of the shape from the base pointer.
+       */
       constexpr index_t offset() const
       {
-         return _offset;
+         return 0;
       }
 
+      /**
+       * @brief Is the shape logically empty (i.e., has zero elements)?
+       */
       constexpr bool empty() const
       {
          return size() == 0;
       }
 
+      /**
+       * @brief Returns the size of the specified dimension.
+       */
       TENSOR_FUNC index_t shape(index_t dim) const
       {
          TENSOR_DEBUG_ASSERT(dim < NumDims, printf("Dimension %ju is out of range for shape with %ju dimensions.\n",
@@ -89,55 +99,34 @@ namespace tensor::details
          return _shape[dim];
       }
 
+      /**
+       * @brief Computes the linear index corresponding to the provided multi-dimensional indices.
+       */
       template <typename... Indices>
       TENSOR_FUNC auto operator()(Indices... indices) const
       {
          static_assert(sizeof...(Indices) == NumDims, "wrong number of indices.");
          constexpr index_t start = (Order == LinearOrder::F) ? 0 : NumDims - 1;
-         return _offset + computeIndex<start>(std::forward_as_tuple(indices...));
+         return computeIndex<start>(std::forward_as_tuple(indices...));
       }
 
+      /**
+       * @brief Identity mapping for linear indices.
+       */
       TENSOR_FUNC index_t operator[](index_t index) const
       {
          TENSOR_DEBUG_ASSERT(index < size(), printf("Linear index = %ju is out of range for tensor with size %ju.\n",
                                                     static_cast<uintmax_t>(index), static_cast<uintmax_t>(size())));
-         return _offset + index;
+         return index;
       }
 
    private:
-      template <index_t Dim>
-      TENSOR_FUNC index_t simplifyIndex(index_t i) const
-      {
-         TENSOR_DEBUG_ASSERT(i < _shape[Dim], printf("Index %ju is out of range for dimension %ju with size %ju.\n",
-                                                     static_cast<uintmax_t>(i), static_cast<uintmax_t>(Dim),
-                                                     static_cast<uintmax_t>(_shape[Dim])));
-
-         return i;
-      }
-
-      template <index_t Dim>
-      TENSOR_FUNC const Span &simplifyIndex(const Span &s) const
-      {
-         TENSOR_DEBUG_ASSERT(s.end <= _shape[Dim],
-                             printf("Span( %ju, %ju ) is out of range for dimension %ju with size %ju.\n",
-                                    static_cast<uintmax_t>(s.begin), static_cast<uintmax_t>(s.end),
-                                    static_cast<uintmax_t>(Dim), static_cast<uintmax_t>(_shape[Dim])));
-
-         return s;
-      }
-
-      template <index_t Dim>
-      constexpr Span simplifyIndex(All) const
-      {
-         return Span(0, _shape[Dim]);
-      }
-
       template <index_t Dim, typename IndexTuple>
       TENSOR_FUNC auto computeIndex(IndexTuple &&indices) const
       {
          static_assert(Dim < NumDims, "Dimension out of range in computeIndex.");
 
-         decltype(auto) index = simplifyIndex<Dim>(std::get<Dim>(indices));
+         decltype(auto) index = details::simplifyIndex(std::get<Dim>(indices), Dim, _shape[Dim]);
 
          if constexpr (Order == LinearOrder::F)
          {
@@ -190,7 +179,6 @@ namespace tensor::details
             {
                shape._shape[i] = (i < N) ? other.shape(i) : 1;
             }
-            shape._offset = other.offset();
             return shape;
          }
       }

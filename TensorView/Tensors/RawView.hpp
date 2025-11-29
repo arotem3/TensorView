@@ -80,7 +80,7 @@ namespace tensor::details
        * @brief construct from raw pointer and dimensions.
        * Specialized only for StandardShape. i.e. TensorView
        */
-      template <typename U, TENSOR_INT_LIKE... Dims>
+      template <typename U, IndexLike... Dims>
       TENSOR_FUNC explicit RawView(U *data_ptr, Dims... dims)
          requires(IsStandardShape<shape_type>::value)
           : _shape(dims...), _container(data_ptr, _shape.size())

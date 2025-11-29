@@ -156,8 +156,8 @@ namespace tensor::details
       /**
        * @brief Constructs a PersistentView with the specified shape.
        */
-      template <TENSOR_INT_LIKE... Sizes>
-      PersistentView(Sizes... shape_)
+      template <IndexLike... Sizes>
+      explicit PersistentView(Sizes... shape_)
          requires(Owner)
           : _shape(shape_...), _container(_shape.size())
       {
@@ -167,8 +167,8 @@ namespace tensor::details
        * @brief Constructs a PersistentView claiming ownership of a raw pointer's data with the specified shape.
        * If the underlying pointer is deleted elsewhere, behavior is undefined.
        */
-      template <TENSOR_INT_LIKE... Sizes>
-      PersistentView(const T *data, Sizes... shape_)
+      template <IndexLike... Sizes>
+      explicit PersistentView(const T *data, Sizes... shape_)
          requires(Owner)
           : _shape(shape_...), _container(data, _shape.size())
       {
@@ -303,7 +303,7 @@ namespace tensor::details
        * Ownership of the old data is released. Active persistent/reference views remain valid; raw views become
        * undefined behavior.
        */
-      template <typename T1, TENSOR_INT_LIKE... Sizes>
+      template <typename T1, IndexLike... Sizes>
       PersistentView &claim(T1 *data, Sizes... shape)
          requires(Owner)
       {
@@ -385,7 +385,7 @@ namespace tensor::details
        * Cannot resize if there are active persistent/reference views to the data.
        * If there are active raw views to the data, behavior is undefined for those views.
        */
-      template <TENSOR_INT_LIKE... Sizes>
+      template <IndexLike... Sizes>
       PersistentView &reshape(Sizes... new_shape)
          requires(Owner)
       {

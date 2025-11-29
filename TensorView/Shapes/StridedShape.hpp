@@ -1,4 +1,5 @@
 #pragma once
+#include "TensorView/Access/SimplifyIndex.hpp"
 #include "TensorView/Access/Span.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Shapes/LinearOrder.hpp"
@@ -12,6 +13,8 @@ namespace tensor::details
    template <index_t NumDims>
    class StridedShape
    {
+      static_assert(NumDims > 0, "StridedShape must have a non-zero number of dimensions.");
+
    private:
       index_t _offset;
       std::array<index_t, NumDims> _shape;
@@ -157,39 +160,12 @@ namespace tensor::details
       }
 
    private:
-      template <index_t Dim>
-      TENSOR_FUNC index_t simplifyIndex(index_t i) const
-      {
-         TENSOR_DEBUG_ASSERT(i < _shape[Dim], printf("Index %ju is out of range for dimension %ju with size %ju.\n",
-                                                     static_cast<uintmax_t>(i), static_cast<uintmax_t>(Dim),
-                                                     static_cast<uintmax_t>(_shape[Dim])));
-
-         return i;
-      }
-
-      template <index_t Dim>
-      TENSOR_FUNC const Span &simplifyIndex(const Span &s) const
-      {
-         TENSOR_DEBUG_ASSERT(s.end <= _shape[Dim],
-                             printf("Span( %ju, %ju ) is out of range for dimension %ju with size %ju.\n",
-                                    static_cast<uintmax_t>(s.begin), static_cast<uintmax_t>(s.end),
-                                    static_cast<uintmax_t>(Dim), static_cast<uintmax_t>(_shape[Dim])));
-
-         return s;
-      }
-
-      template <index_t Dim>
-      constexpr Span simplifyIndex(All) const
-      {
-         return Span(0, _shape[Dim]);
-      }
-
       template <index_t Dim, typename Index, typename... Indices>
       TENSOR_FUNC auto computeIndex(Index i, Indices... indices) const
       {
          static_assert(Dim < NumDims, "Dimension out of range in computeIndex.");
 
-         decltype(auto) index = simplifyIndex<Dim>(i);
+         decltype(auto) index = details::simplifyIndex(i, Dim, _shape[Dim]);
 
          if constexpr (Dim + 1 < NumDims)
             return _strides[Dim] * index + computeIndex<Dim + 1>(std::forward<Indices>(indices)...);

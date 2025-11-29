@@ -8,7 +8,7 @@ namespace tensor
     * @brief creates a Tensor of the specified shape.
     */
    template <typename Scalar, LinearOrder Order = LinearOrder::F, MemorySpace MemSpace = MemorySpace::Host,
-             TENSOR_INT_LIKE... Dims>
+             IndexLike... Dims>
    auto makeTensor(Dims... dims)
    {
       constexpr size_t numDims = sizeof...(Dims);
