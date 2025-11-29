@@ -42,7 +42,7 @@ namespace tensor::details
       OwningContainer &operator=(OwningContainer &&) = default;
 
       /**
-       * @brief Constructs an OwningContainer sharing the data of another OwningContainer with an optional offset.
+       * @brief Constructs an OwningContainer sharing the data of another OwningContainer.
        */
       template <typename U, MemorySpace MS>
          requires(compatibleMemorySpaces(MemSpace, MS))
