@@ -71,6 +71,7 @@ namespace tensor::details
        */
       template <typename TensorType>
       TENSOR_FUNC RawView(TensorType &&other)
+         requires(TensorTraits<std::remove_cvref_t<TensorType>>::value)
       {
          rebind(std::forward<TensorType>(other));
       }
@@ -358,7 +359,7 @@ namespace tensor::details
    };
 
    template <typename Shape, typename T, MemorySpace MemSpace>
-   struct TensorTraits<RawView<Shape, T, MemSpace>>
+   struct TensorTraits<RawView<Shape, T, MemSpace>> : std::true_type
    {
       using tensor_type = RawView<Shape, T, MemSpace>;
       using shape_type = Shape;

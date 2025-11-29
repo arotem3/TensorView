@@ -6,7 +6,9 @@
 namespace tensor::details
 {
    template <typename TensorType>
-   struct TensorTraits;
+   struct TensorTraits : std::false_type
+   {
+   };
    /*
       using tensor_type = TensorType;
       using value_type; // type of tensor elements

@@ -138,6 +138,7 @@ namespace tensor::details
        */
       template <typename TensorType>
       PersistentView(TensorType &&other)
+         requires(TensorTraits<std::remove_cvref_t<TensorType>>::value)
       {
          if constexpr (Owner)
          {
@@ -596,7 +597,7 @@ namespace tensor::details
    };
 
    template <typename Shape, typename T, MemorySpace MemSpace, bool Owner>
-   struct TensorTraits<PersistentView<Shape, T, MemSpace, Owner>>
+   struct TensorTraits<PersistentView<Shape, T, MemSpace, Owner>> : std::true_type
    {
       using tensor_type = PersistentView<Shape, T, MemSpace, Owner>;
       using container_type = typename tensor_type::container_type;
