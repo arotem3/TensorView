@@ -111,6 +111,29 @@ namespace tensor
       return nullptr;
    }
 
+   template <typename T>
+   inline void deallocate(T *ptr, MemorySpace m)
+   {
+      switch (m)
+      {
+         case MemorySpace::Host:
+            deallocate<T, MemorySpace::Host>(ptr);
+            break;
+#ifdef TENSOR_USE_CUDA
+         case MemorySpace::Device:
+            deallocate<T, MemorySpace::Device>(ptr);
+            break;
+         case MemorySpace::Managed:
+            deallocate<T, MemorySpace::Managed>(ptr);
+            break;
+#endif
+         case MemorySpace::Unspecified:
+         default:
+            TENSOR_CHECK(false, printf("Unknown memory space in deallocate.\n"));
+            break;
+      }
+   }
+
    /// @brief Allocator for STL containers.
    template <typename T, MemorySpace m = MemorySpace::Host>
    class allocator

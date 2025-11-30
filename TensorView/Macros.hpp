@@ -1,10 +1,12 @@
 #pragma once
 
 #include <array>
+#include <complex>
 #include <concepts>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <ranges>
 #include <stdexcept>
 #include <type_traits>
@@ -22,6 +24,14 @@
 #define TENSOR_HOST_DEVICE __host__ __device__
 #else
 #define TENSOR_HOST_DEVICE
+#endif
+
+#if defined(FFTW3_H) && !defined(TENSOR_USE_FFTW)
+#define TENSOR_USE_FFTW
+#endif
+
+#ifdef TENSOR_USE_FFTW
+#include <fftw3.h>
 #endif
 
 #ifndef NDEBUG

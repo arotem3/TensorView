@@ -16,6 +16,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(TENSOR_USE_CUDA "Enable CUDA support" OFF)
 option(TENSOR_USE_64BIT_INDEX "Use 64-bit index type" OFF)
+option(TENSOR_USE_FFTW "Enable FFTW support" OFF)
 
 # ------------------------------------------------------------------------------
 # Library target
@@ -52,6 +53,21 @@ if (TENSOR_USE_CUDA)
     target_compile_options(TensorView INTERFACE $<$<COMPILE_LANGUAGE:CUDA>:--extended-lambda --expt-relaxed-constexpr>)
 
     set(TENSORVIEW_PKGCONFIG_LIBS "-lcudart")
+  endif()
+endif()
+
+# ------------------------------------------------------------------------------
+# FFTW support
+# ------------------------------------------------------------------------------
+if (TENSOR_USE_FFTW)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(FFTW REQUIRED IMPORTED_TARGET fftw3)
+
+  if (FFTW_FOUND)
+    target_compile_definitions(TensorView INTERFACE TENSOR_USE_FFTW)
+    target_link_libraries(TensorView INTERFACE PkgConfig::FFTW)
+
+    set(TENSORVIEW_PKGCONFIG_LIBS "${TENSORVIEW_PKGCONFIG_LIBS} -lfftw3")
   endif()
 endif()
 
