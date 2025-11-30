@@ -339,11 +339,11 @@ namespace tensor::details
       }
 
       /**
-       * @brief returns whether the data is contiguous in the specified linear order.
+       * @brief Is the tensor F-contiguous?
        */
-      bool contiguous(LinearOrder O) const
+      bool contiguous() const
       {
-         return _shape.contiguous(O);
+         return _shape.contiguous();
       }
 
       /**

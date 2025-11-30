@@ -363,15 +363,6 @@ int main()
    n_failed += test_static_view_initialization();
    n_failed += test_lowD_to_highD();
    n_failed += test_copy_shape();
-
-   if (n_failed == 0)
-   {
-      std::cout << ColorText::green("initialization.cpp: All tests passed!") << std::endl;
-   }
-   else
-   {
-      std::cout << ColorText::red(std::format("initialization.cpp: {} tests failed.", n_failed)) << std::endl;
-   }
-
+   PRINT_RESULT(n_failed);
    return n_failed;
 }

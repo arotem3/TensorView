@@ -29,12 +29,11 @@ namespace tensor::details
       /**
        * @brief Constructs an OwningContainer with the specified capacity.
        */
-      inline OwningContainer(index_t capacity)
+      inline OwningContainer(index_t capacity = 0)
           : _data(tensor::allocate<T, MemSpace>(capacity), tensor::deleter<T, MemSpace>{}), _capacity{capacity}
       {
       }
 
-      OwningContainer() = default;
       ~OwningContainer() = default;
       OwningContainer(const OwningContainer &) = default;
       OwningContainer &operator=(const OwningContainer &) = default;

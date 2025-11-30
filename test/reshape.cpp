@@ -68,14 +68,6 @@ int main()
    n_failed += test_reshape("StaticTensor", []() { return StaticTensor<double, 6>(); });
    n_failed += test_reshape("StaticView", []() { return StaticView<double, 6>(new double[6]); });
 
-   if (n_failed == 0)
-   {
-      std::cout << ColorText::green("reshape.cpp: All tests passed!") << std::endl;
-   }
-   else
-   {
-      std::cout << ColorText::red(std::format("reshape.cpp: {} tests failed.", n_failed)) << std::endl;
-   }
-
+   PRINT_RESULT(n_failed);
    return n_failed;
 }

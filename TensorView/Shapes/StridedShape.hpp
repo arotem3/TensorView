@@ -10,15 +10,18 @@ namespace tensor::details
    template <index_t numDims, LinearOrder Order>
    class StandardShape;
 
+   template <LinearOrder Order, index_t... Dims>
+   class StaticShape;
+
    template <index_t NumDims>
    class StridedShape
    {
       static_assert(NumDims > 0, "StridedShape must have a non-zero number of dimensions.");
 
    private:
-      index_t _offset;
       std::array<index_t, NumDims> _shape;
       std::array<index_t, NumDims> _strides;
+      index_t _offset;
 
       friend struct ShapeTraits<StridedShape<NumDims>>;
 
@@ -54,8 +57,9 @@ namespace tensor::details
                       printf("Stride for dimension 0 must be >= 1, got %ju.\n", static_cast<uintmax_t>(_strides[0])));
       }
 
-      TENSOR_FUNC StridedShape(const std::array<index_t, NumDims> &shape_, const std::array<index_t, NumDims> &strides_)
-          : _shape(shape_), _strides(strides_)
+      TENSOR_FUNC StridedShape(std::array<index_t, NumDims> &&shape_, std::array<index_t, NumDims> &&strides_,
+                               index_t offset = 0)
+          : _shape(std::move(shape_)), _strides(std::move(strides_)), _offset(offset)
       {
          for (index_t d = 0; d < NumDims; ++d)
          {
@@ -70,31 +74,17 @@ namespace tensor::details
       }
 
       /**
-       * @brief Is the shape contiguous in memory with respect to the specified linear order.
+       * @brief Is the shape F-contiguous?
        */
-      constexpr bool contiguous(LinearOrder O) const
+      constexpr bool contiguous() const
       {
          bool c = true;
          index_t s = 1;
 
-         if (O == LinearOrder::F)
+         for (index_t k = 0; k < NumDims; ++k)
          {
-            for (index_t k = 0; k < NumDims; ++k)
-            {
-               c = c && (s == _strides[k]);
-               s *= _shape[k];
-            }
-         }
-         else // C
-         {
-            for (index_t k = NumDims - 1;; --k)
-            {
-               c = c && (s == _strides[k]);
-               s *= _shape[k];
-
-               if (k == 0)
-                  break;
-            }
+            c = c && (s == _strides[k]);
+            s *= _shape[k];
          }
 
          return c;
@@ -136,6 +126,13 @@ namespace tensor::details
          return _shape[dim];
       }
 
+      TENSOR_FUNC index_t stride(index_t dim) const
+      {
+         TENSOR_DEBUG_ASSERT(dim < NumDims, printf("Dimension %ju is out of range for shape with %ju dimensions.\n",
+                                                   static_cast<uintmax_t>(dim), static_cast<uintmax_t>(NumDims)));
+         return _strides[dim];
+      }
+
       template <typename... Indices>
       TENSOR_FUNC auto operator()(Indices... indices) const
       {
@@ -151,11 +148,9 @@ namespace tensor::details
          index_t l = _offset;
          for (index_t d = 0; d < NumDims; ++d)
          {
-            index_t i = index % _shape[d];
-            l += _strides[d] * i;
+            l += _strides[d] * (index % _shape[d]);
             index /= _shape[d];
          }
-
          return l;
       }
 
@@ -188,7 +183,7 @@ namespace tensor::details
       }
 
       /**
-       * @brief Are All valid instances of this shape contiguous in memory with respect to the specified linear order?
+       * @brief Are All valid instances of this shape F-contiguous in memory?
        */
       static constexpr bool contiguous()
       {
@@ -214,14 +209,11 @@ namespace tensor::details
          else // C order
          {
             index_t stride = 1;
-            for (index_t d = NumDims - 1;; --d)
+            for (index_t d = NumDims; d-- > 0;)
             {
                shape._shape[d] = (d < N) ? other.shape(d) : 1;
                shape._strides[d] = stride;
                stride *= shape._shape[d];
-
-               if (d == 0)
-                  break;
             }
          }
 
@@ -244,6 +236,13 @@ namespace tensor::details
          }
          shape._offset = other.offset();
          return shape;
+      }
+
+      template <LinearOrder Order, index_t... Dims>
+      static constexpr shape_type from(const StaticShape<Order, Dims...> &)
+         requires(sizeof...(Dims) <= NumDims)
+      {
+         return from(StandardShape<sizeof...(Dims), Order>(Dims...));
       }
    };
 } // namespace tensor::details

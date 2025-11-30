@@ -15,7 +15,7 @@ namespace tensor::details
       using shape_type; // type of tensor shape
       using container_type; // type of tensor container
 
-      // are all valid instances of this tensor type contiguous in memory with respect to their natural ordering?
+      // are all valid instances of this tensor type F-contiguous in memory?
       static constexpr bool contiguous();
 
       // are elements of this tensor mutable?

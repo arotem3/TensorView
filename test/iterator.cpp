@@ -131,12 +131,6 @@ int main()
    n_fails += test_tensorview_iterator();
    n_fails += test_tensor_iterator();
 
-   if (n_fails == 0)
-   {
-      std::cout << ColorText::green("iterator.cpp: All tests passed!") << std::endl;
-   }
-   else
-   {
-      std::cout << ColorText::red(std::format("iterator.cpp: {} tests failed!", n_fails)) << std::endl;
-   }
+   PRINT_RESULT(n_fails);
+   return n_fails;
 }

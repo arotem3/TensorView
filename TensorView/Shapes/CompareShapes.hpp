@@ -9,7 +9,7 @@ namespace tensor::details
     * the higher-dimensional tensor must be singleton dimensions.
     */
    template <typename TensorA, typename TensorB>
-   inline bool sameShape(const TensorA &a, const TensorB &b)
+   constexpr bool sameShape(const TensorA &a, const TensorB &b)
    {
       const index_t n = std::min(a.numDims(), b.numDims());
 

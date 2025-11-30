@@ -72,14 +72,6 @@ int main()
    n_fails += test_tensor_subview();
    n_fails += test_tensorview_subview();
 
-   if (n_fails == 0)
-   {
-      std::cout << ColorText::green("subview.cpp: All tests passed.") << std::endl;
-   }
-   else
-   {
-      std::cout << ColorText::red(std::format("subview.cpp: {} tests failed.", n_fails)) << std::endl;
-   }
-
+   PRINT_RESULT(n_fails);
    return n_fails;
 }

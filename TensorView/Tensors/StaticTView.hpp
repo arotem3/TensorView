@@ -9,17 +9,7 @@ namespace tensor
     * Fortran or C contiguous layout.
     */
    template <typename T, LinearOrder Order, index_t... Dims>
-   class FCStaticView : public details::RawView<details::StaticShape<Order, Dims...>, T, MemorySpace::Unspecified>
-   {
-   private:
-      using base = details::RawView<details::StaticShape<Order, Dims...>, T, MemorySpace::Unspecified>;
-
-   public:
-      template <typename U>
-      FCStaticView(U *ptr) : base({}, {ptr, base::shape_type::extent()})
-      {
-      }
-   };
+   using FCStaticView = details::RawView<details::StaticShape<Order, Dims...>, T, MemorySpace::Unspecified>;
 
    template <typename T, index_t... Dims>
    using CStaticView = FCStaticView<T, LinearOrder::C, Dims...>;
@@ -30,12 +20,3 @@ namespace tensor
    template <typename T, index_t... Dims>
    using StaticView = FStaticView<T, Dims...>;
 } // namespace tensor
-
-namespace tensor::details
-{
-   template <typename T, LinearOrder Order, index_t... Dims>
-   struct TensorTraits<FCStaticView<T, Order, Dims...>>
-       : public TensorTraits<RawView<StaticShape<Order, Dims...>, T, MemorySpace::Unspecified>>
-   {
-   };
-} // namespace tensor::details

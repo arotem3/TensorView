@@ -111,11 +111,11 @@ namespace tensor
       }
 
       /**
-       * @brief is the tensor contiguous in memory with respect to the specified linear order.
+       * @brief Is the tensor F-contiguous?
        */
-      TENSOR_FUNC bool contiguous(LinearOrder O) const
+      constexpr bool contiguous() const
       {
-         return _shape.contiguous(O);
+         return _shape.contiguous();
       }
 
       /**

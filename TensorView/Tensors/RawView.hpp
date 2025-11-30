@@ -5,8 +5,10 @@
 #include "TensorView/Containers/ViewContainer.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Shapes/ShapeTraits.hpp"
+#include "TensorView/Shapes/StaticShape.hpp"
 #include "TensorView/Tensors/TensorTraits.hpp"
 #include "TensorView/Utility/Copy.hpp"
+#include "TensorView/Utility/InitializerTensor.hpp"
 
 namespace tensor::details
 {
@@ -35,6 +37,7 @@ namespace tensor::details
 
       static constexpr bool _is_mutable = ct::mutableElements();
       static constexpr bool _is_contiguous = st::contiguous();
+      static constexpr index_t _num_dims = shape_type::numDims();
 
    public:
       using value_type = typename traits::value_type;
@@ -82,8 +85,15 @@ namespace tensor::details
        */
       template <typename U, IndexLike... Dims>
       TENSOR_FUNC explicit RawView(U *data_ptr, Dims... dims)
-         requires(IsStandardShape<shape_type>::value)
+         requires(details::IsStandardShape<shape_type>::value)
           : _shape(dims...), _container(data_ptr, _shape.size())
+      {
+      }
+
+      template <typename U>
+      TENSOR_FUNC explicit RawView(U *data_ptr)
+         requires(details::IsStaticShape<shape_type>::value)
+          : _shape(), _container(data_ptr, _shape.size())
       {
       }
 
@@ -119,6 +129,13 @@ namespace tensor::details
          return *this;
       }
 
+      TENSOR_FUNC RawView &operator=(const typename details::InitializerTensor<T, _num_dims>::ListType &init)
+         requires(_is_mutable)
+      {
+         fromInitializer<T, _num_dims>(*this, init);
+         return *this;
+      }
+
       /**
        * @brief rebinds the view to another tensor-like object's data.
        */
@@ -140,11 +157,11 @@ namespace tensor::details
       }
 
       /**
-       * @brief is the tensor contiguous in memory with respect to the specified linear order.
+       * @brief Is the tensor F-contiguous?
        */
-      TENSOR_FUNC bool contiguous(LinearOrder O) const
+      TENSOR_FUNC bool contiguous() const
       {
-         return _shape.contiguous(O);
+         return _shape.contiguous();
       }
 
       /**
@@ -211,7 +228,7 @@ namespace tensor::details
       TENSOR_FUNC value_type *data()
          requires(_is_contiguous)
       {
-         return _container.data();
+         return _container.data() + _shape.offset();
       }
 
       /**
@@ -220,7 +237,7 @@ namespace tensor::details
       TENSOR_FUNC const value_type *data() const
          requires(_is_contiguous)
       {
-         return _container.data();
+         return _container.data() + _shape.offset();
       }
 
       /**

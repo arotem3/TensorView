@@ -63,14 +63,6 @@ int main()
                                          return std::make_pair(std::move(data), view);
                                       });
 
-   if (n_failed == 0)
-   {
-      std::cout << ColorText::green("access.cpp: All tests passed!") << std::endl;
-   }
-   else
-   {
-      std::cout << ColorText::red(std::format("access.cpp: {} tests failed.", n_failed)) << std::endl;
-   }
-
+   PRINT_RESULT(n_failed);
    return n_failed;
 }

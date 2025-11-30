@@ -47,11 +47,11 @@ namespace tensor::details
       }
 
       /**
-       * @brief Is the shape contiguous in memory with respect to the specified linear order.
+       * @brief Is the shape F-contiguous
        */
-      static constexpr bool contiguous(LinearOrder O)
+      static constexpr bool contiguous()
       {
-         return O == Order;
+         return Order == LinearOrder::F;
       }
 
       /**
@@ -70,7 +70,7 @@ namespace tensor::details
        */
       constexpr index_t extent() const
       {
-         return size();
+         return size() + offset();
       }
 
       /**
@@ -107,17 +107,33 @@ namespace tensor::details
       {
          static_assert(sizeof...(Indices) == NumDims, "wrong number of indices.");
          constexpr index_t start = (Order == LinearOrder::F) ? 0 : NumDims - 1;
-         return computeIndex<start>(std::forward_as_tuple(indices...));
+         return offset() + computeIndex<start>(std::forward_as_tuple(indices...));
       }
 
       /**
-       * @brief Identity mapping for linear indices.
+       * @brief linear index operator.
        */
       TENSOR_FUNC index_t operator[](index_t index) const
       {
          TENSOR_DEBUG_ASSERT(index < size(), printf("Linear index = %ju is out of range for tensor with size %ju.\n",
                                                     static_cast<uintmax_t>(index), static_cast<uintmax_t>(size())));
-         return index;
+         if constexpr (Order == LinearOrder::F)
+         {
+            return offset() + index;
+         }
+         else // C order: need to convert linear index to Fortran order
+         {
+            index_t l = offset();
+            auto strides = details::CStrides(_shape);
+
+            for (index_t d = 0; d < NumDims; ++d)
+            {
+               l += strides[d] * (index % _shape[d]);
+               index /= _shape[d];
+            }
+
+            return l;
+         }
       }
 
    private:
@@ -159,11 +175,11 @@ namespace tensor::details
       }
 
       /**
-       * @brief Are All valid instances of this shape contiguous in memory with respect to the specified linear order?
+       * @brief Are all valid instances of this shape contiguous in memory with respect to LinearOrder::F?
        */
       static constexpr bool contiguous()
       {
-         return true;
+         return Order == LinearOrder::F;
       }
 
       template <index_t N>
@@ -181,6 +197,22 @@ namespace tensor::details
             }
             return shape;
          }
+      }
+
+      template <typename ShapeLike>
+      static constexpr shape_type makeLike(const ShapeLike &other)
+      {
+         shape_type shape;
+         constexpr index_t other_num_dims = ShapeTraits<ShapeLike>::numDims();
+         static_assert(other_num_dims <= NumDims,
+                       "Cannot make StandardShape like ShapeLike with more dimensions than NumDims.");
+
+         for (index_t i = 0; i < NumDims; ++i)
+         {
+            shape._shape[i] = (i < other_num_dims) ? other.shape(i) : 1;
+         }
+
+         return shape;
       }
    };
 

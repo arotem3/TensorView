@@ -33,11 +33,11 @@ namespace tensor::details
       }
 
       /**
-       * @brief Is the shape contiguous in memory with respect to the specified linear order.
+       * @brief Is the shape F-contiguous?
        */
-      static constexpr bool contiguous(LinearOrder O)
+      static constexpr bool contiguous()
       {
-         return O == Order;
+         return O == LinearOrder::F;
       }
 
       /**
@@ -102,7 +102,25 @@ namespace tensor::details
       {
          TENSOR_DEBUG_ASSERT(index < size(), printf("Linear index = %ju is out of range for tensor with size %ju.\n",
                                                     static_cast<uintmax_t>(index), static_cast<uintmax_t>(size())));
-         return index;
+         if constexpr (Order == LinearOrder::F)
+         {
+            return offset() + index;
+         }
+         else // C order: need to convert linear index to Fortran order
+         {
+            constexpr index_t _shape[] = {Dims...};
+            constexpr auto strides = details::CStrides({Dims...});
+
+            index_t l = offset();
+
+            for (index_t d = 0; d < numDims(); ++d)
+            {
+               l += strides[d] * (index % _shape[d]);
+               index /= _shape[d];
+            }
+
+            return l;
+         }
       }
 
    private:
@@ -141,13 +159,16 @@ namespace tensor::details
          return sizeof...(Dims);
       }
 
+      /**
+       * @brief Are all instances of this shape type F-contiguous?
+       */
       static constexpr bool contiguous()
       {
-         return true;
+         return Order == LinearOrder::F;
       }
 
       template <typename ShapeType>
-      static inline shape_type from([[maybe_unused]] const ShapeType &other)
+      static TENSOR_HOST_DEVICE shape_type from([[maybe_unused]] const ShapeType &other)
          requires(ShapeType::numDims() <= sizeof...(Dims))
       {
          shape_type shape;
@@ -157,14 +178,24 @@ namespace tensor::details
          for (index_t i = 0; i < sizeof...(Dims); ++i)
          {
             index_t dim = (i < ShapeType::numDims()) ? other.shape(i) : 1;
-            TENSOR_DEBUG_ASSERT(dim == shape._shape[i],
-                                printf("Cannot convert to StaticShape: expected %ju but got %ju at dimension %ju.\n",
-                                       static_cast<uintmax_t>(shape._shape[i]), static_cast<uintmax_t>(dim),
-                                       static_cast<uintmax_t>(i)));
+            TENSOR_DEBUG_ASSERT(
+                dim == _shape[i],
+                printf("Cannot convert to StaticShape: expected %ju but got %ju at dimension %ju.\n",
+                       static_cast<uintmax_t>(_shape[i]), static_cast<uintmax_t>(dim), static_cast<uintmax_t>(i)));
          }
 #endif
 
          return shape;
       }
+   };
+
+   template <typename T>
+   struct IsStaticShape : std::false_type
+   {
+   };
+
+   template <LinearOrder Order, index_t... Dims>
+   struct IsStaticShape<StaticShape<Order, Dims...>> : std::true_type
+   {
    };
 } // namespace tensor::details

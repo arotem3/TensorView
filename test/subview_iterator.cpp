@@ -52,12 +52,6 @@ int main()
    n_fails += test_tensor_subview_iterator();
    n_fails += test_tensorview_subview_iterator();
 
-   if (n_fails == 0)
-   {
-      std::cout << ColorText::green("subview_iterators.cpp: All tests passed!") << std::endl;
-   }
-   else
-   {
-      std::cout << ColorText::red(std::format("subview_iterators.cpp: {} test(s) failed!", n_fails)) << std::endl;
-   }
+   PRINT_RESULT(n_fails);
+   return n_fails;
 }
