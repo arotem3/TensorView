@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <ranges>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>

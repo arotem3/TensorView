@@ -25,6 +25,7 @@
 #include "TensorView/Utility/Copy.hpp"
 #include "TensorView/Utility/InitializerTensor.hpp"
 #include "TensorView/Utility/Memory.hpp"
+#include "TensorView/Utility/PermuteDimensions.hpp"
 #include "TensorView/Utility/Reshape.hpp"
 
 namespace tensor

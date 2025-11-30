@@ -694,4 +694,17 @@ namespace tensor::details
          return std::move(tensor._container);
       }
    };
+
+   template <typename T>
+   struct IsPersistentView : std::false_type
+   {
+   };
+
+   template <typename Shape, typename T, MemorySpace MemSpace, bool Owner>
+   struct IsPersistentView<PersistentView<Shape, T, MemSpace, Owner>> : std::true_type
+   {
+   };
+
+   template <typename T>
+   inline constexpr bool is_persistent_view_v = IsPersistentView<T>::value;
 } // namespace tensor::details
