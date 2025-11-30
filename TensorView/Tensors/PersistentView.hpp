@@ -7,6 +7,7 @@
 #include "TensorView/Shapes/ShapeTraits.hpp"
 #include "TensorView/Tensors/TensorTraits.hpp"
 #include "TensorView/Utility/Copy.hpp"
+#include "TensorView/Utility/InitializerTensor.hpp"
 
 namespace tensor::details
 {
@@ -26,8 +27,9 @@ namespace tensor::details
 
       static constexpr bool _is_mutable = ct::mutableElements();
       static constexpr bool _is_contiguous = st::contiguous();
+      static constexpr index_t _num_dims = shape_type::numDims();
 
-      static_assert(_is_mutable || !Owner, "Immutable PersistentView cannot own data.");
+      static_assert(!Owner || _is_mutable, "Owning PersistentView must have mutable elements to own data.");
 
    public:
       using value_type = typename ct::value_type;
@@ -67,7 +69,7 @@ namespace tensor::details
          if constexpr (Owner)
          {
             _shape = other._shape;
-            _container = container_type(other.size());
+            _container = container_type(_shape.extent());
             details::copyTensorToTensor(other, *this);
          }
          else
@@ -89,18 +91,18 @@ namespace tensor::details
 
             if (other.unique())
             {
-               _container = std::exchange(other._container, container_type());
+               _container = std::move(other._container);
             }
             else
             {
-               _container = container_type(other.size());
+               _container = container_type(_shape.extent());
                details::copyTensorToTensor(other, *this);
             }
          }
          else
          {
             _shape = std::move(other._shape);
-            _container = std::exchange(other._container, container_type());
+            _container = std::move(other._container);
          }
       }
 
@@ -108,27 +110,27 @@ namespace tensor::details
        * @brief If Owner, performs a deep copy of other's data.
        * If not Owner, performs a shallow copy of other's shape and container.
        */
-      template <typename S1, typename T1, MemorySpace MS1, bool Owner1>
-      PersistentView(PersistentView<S1, T1, MS1, Owner1> &&other)
+      template <typename T1, MemorySpace MS1, bool Owner1>
+      PersistentView(PersistentView<shape_type, T1, MS1, Owner1> &&other)
+         requires(std::is_convertible_v<T1 *, T *> && compatibleMemorySpaces(MemSpace, MS1))
       {
          if constexpr (Owner)
          {
-            _shape = st::from(other.shape());
+            _shape = std::move(other._shape);
 
             if (other.unique())
             {
-               using other_container_type = typename PersistentView<S1, T1, MS1, Owner1>::container_type;
-               _container = std::exchange(other._container, other_container_type());
+               _container = std::move(other._container);
             }
             else
             {
-               _container = container_type(other.size());
+               _container = container_type(_shape.extent());
                details::copyTensorToTensor(other, *this);
             }
          }
          else
          {
-            rebind(std::forward<PersistentView<S1, T1, MS1, Owner1>>(other));
+            rebind(std::move(other));
          }
       }
 
@@ -143,8 +145,8 @@ namespace tensor::details
          if constexpr (Owner)
          {
             using traits = TensorTraits<std::remove_cvref_t<TensorType>>;
-            _shape = st::from(traits::shape(other));
-            _container = container_type(_shape.size());
+            _shape = st::makeLike(traits::shape(other));
+            _container = container_type(_shape.extent());
             details::copyTensorToTensor(other, *this);
          }
          else
@@ -154,12 +156,31 @@ namespace tensor::details
       }
 
       /**
+       * @brief Constructs a PersistentView from nested initializer lists.
+       *
+       * @example 1D: 3-vector
+       * Tensor<float, 1> t = {1.0f, 2.0f, 3.0f};
+       *
+       * @example 2D: 2x3 matrix
+       * Tensor<float, 2> t = {{1.0f, 2.0f, 3.0f},{4.0f, 5.0f, 6.0f}};
+       */
+      PersistentView(typename details::InitializerTensor<T, _num_dims>::ListType list)
+         requires(Owner)
+      {
+         details::InitializerTensor<T, _num_dims> init{std::move(list)};
+         _shape = st::makeLike(init);
+         _container = container_type(_shape.extent());
+
+         details::fromInitializer<T, _num_dims>(raw(), std::move(init));
+      }
+
+      /**
        * @brief Constructs a PersistentView with the specified shape.
        */
       template <IndexLike... Sizes>
       explicit PersistentView(Sizes... shape_)
          requires(Owner)
-          : _shape(shape_...), _container(_shape.size())
+          : _shape(shape_...), _container(_shape.extent())
       {
       }
 
@@ -167,10 +188,10 @@ namespace tensor::details
        * @brief Constructs a PersistentView claiming ownership of a raw pointer's data with the specified shape.
        * If the underlying pointer is deleted elsewhere, behavior is undefined.
        */
-      template <IndexLike... Sizes>
-      explicit PersistentView(const T *data, Sizes... shape_)
-         requires(Owner)
-          : _shape(shape_...), _container(data, _shape.size())
+      template <typename T1, IndexLike... Sizes>
+      explicit PersistentView(const T1 *data, Sizes... shape_)
+         requires(Owner && std::is_convertible_v<T1 *, T *>)
+          : _shape(shape_...), _container(data, _shape.extent())
       {
          TENSOR_CHECK(data != nullptr, printf("Cannot claim ownership of nullptr data.\n"));
       }
@@ -187,7 +208,7 @@ namespace tensor::details
          if constexpr (Owner)
          {
             _shape = other._shape;
-            _container = container_type(other.size());
+            _container = container_type(_shape.extent());
          }
 
          details::copyTensorToTensor(other, *this);
@@ -202,6 +223,7 @@ namespace tensor::details
        * data if shapes match, otherwise raises an error.
        */
       PersistentView &operator=(PersistentView &&other)
+         requires(_is_mutable)
       {
          if constexpr (Owner)
          {
@@ -209,17 +231,16 @@ namespace tensor::details
 
             if (other.unique())
             {
-               _container = std::exchange(other._container, container_type());
+               _container = std::move(other._container);
             }
             else
             {
-               _container = container_type(other.size());
+               _container = container_type(_shape.extent());
                details::copyTensorToTensor(other, *this);
             }
          }
          else
          {
-            static_assert(_is_mutable, "Cannot copy to an immutable PersistentView.");
             details::copyTensorToTensor(other, *this);
          }
 
@@ -239,12 +260,42 @@ namespace tensor::details
          if constexpr (Owner)
          {
             using traits = TensorTraits<std::remove_cvref_t<TensorType>>;
-            _shape = st::from(traits::shape(other));
-            _container = container_type(_shape.size());
+            _shape = st::makeLike(traits::shape(other)); // use makeLike to copy the dimensions,
+                                                         // no need to ensure compatibility because we copy data
+            _container = container_type(_shape.extent());
          }
 
          details::copyTensorToTensor(other, *this);
 
+         return *this;
+      }
+
+      /**
+       * @brief Assignment from nested initializer lists.
+       * If Owner, then reshapes and copies data. Ownership of the old data is released. Active persistent/reference
+       * views remain valid; raw views become undefined behavior. If not Owner, then copies data if shapes match,
+       * otherwise raises an error.
+       *
+       * @example 1D: 3-vector
+       * Tensor<float, 1> t;
+       * t = {1.0f, 2.0f, 3.0f};
+       *
+       * @example 2D: 2x3 matrix
+       * Tensor<float, 2> t;
+       * t = {{1.0f, 2.0f, 3.0f},{4.0f, 5.0f, 6.0f}};
+       */
+      PersistentView &operator=(typename details::InitializerTensor<T, _num_dims>::ListType list)
+         requires(_is_mutable)
+      {
+         details::InitializerTensor<T, _num_dims> init{std::move(list)};
+
+         if constexpr (Owner)
+         {
+            _shape = st::makeLike(init);
+            _container = container_type(_shape.extent());
+         }
+
+         details::fromInitializer<T, _num_dims>(raw(), std::move(init));
          return *this;
       }
 
@@ -257,8 +308,8 @@ namespace tensor::details
          requires(!Owner)
       {
          using traits = TensorTraits<std::remove_cvref_t<TensorType>>;
-         this->_shape = st::from(traits::shape(other));
-         this->_container = ct::from(traits::container(other));
+         _shape = st::from(traits::shape(other)); // use from to ensure correct type conversion
+         _container = ct::from(traits::container(other));
          return *this;
       }
 
@@ -267,16 +318,14 @@ namespace tensor::details
        * Otherwise, raises an error. Ownership of the old data is released. Active persistent/reference
        * views remain valid; raw views become undefined behavior.
        */
-      template <typename S1, typename T1, MemorySpace MS1, bool Owner1>
-      PersistentView &claim(const PersistentView<S1, T1, MS1, Owner1> &other)
-         requires(Owner)
+      template <typename T1, MemorySpace MS1, bool Owner1>
+      PersistentView &claim(PersistentView<shape_type, T1, MS1, Owner1> &&other)
+         requires(Owner && std::is_convertible_v<T1 *, T *> && compatibleMemorySpaces(MemSpace, MS1))
       {
          TENSOR_CHECK(other.unique(), printf("Cannot claim ownership of PersistentView with multiple references.\n"));
 
-         _shape = st::from(other.shape());
-
-         using other_container_type = typename PersistentView<S1, T1, MS1, Owner1>::container_type;
-         _container = std::exchange(other._container, other_container_type());
+         _shape = std::move(other._shape);
+         _container = std::move(other._container);
 
          return *this;
       }
@@ -287,12 +336,19 @@ namespace tensor::details
        * Ownership of the old data is released. Active persistent/reference views remain valid; raw views become
        * undefined behavior.
        */
-      template <typename S1, typename T1, MemorySpace MS1>
-      PersistentView &claim(const RawView<S1, T1, MS1> &other)
-         requires(Owner)
+      template <typename T1, MemorySpace MS1>
+      PersistentView &claim(RawView<shape_type, T1, MS1> &&other)
+         requires(Owner && std::is_convertible_v<T1 *, T *> && compatibleMemorySpaces(MemSpace, MS1))
       {
-         _shape = st::from(other.shape());
-         _container = container_type(other.data(), other.size());
+         _shape = other.shape();
+
+         using traits = TensorTraits<RawView<shape_type, T1, MS1>>;
+         auto &other_container = traits::container(other);
+
+         TENSOR_CHECK(other_container.data() != nullptr || _shape.size() == 0,
+                      printf("Cannot claim ownership of nullptr data.\n"));
+
+         _container = container_type(other_container.data(), other_container.capacity());
 
          return *this;
       }
@@ -305,11 +361,11 @@ namespace tensor::details
        */
       template <typename T1, IndexLike... Sizes>
       PersistentView &claim(T1 *data, Sizes... shape)
-         requires(Owner)
+         requires(Owner && std::is_convertible_v<T1 *, T *>)
       {
          TENSOR_CHECK(data != nullptr, printf("Cannot claim ownership of nullptr data.\n"));
          _shape = shape_type(shape...);
-         _container = container_type(data, _shape.size());
+         _container = container_type(data, _shape.extent());
 
          return *this;
       }

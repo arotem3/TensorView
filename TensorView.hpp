@@ -23,6 +23,7 @@
 #include "TensorView/Tensors/TensorTraits.hpp"
 #include "TensorView/Tensors/makeTensor.hpp"
 #include "TensorView/Utility/Copy.hpp"
+#include "TensorView/Utility/InitializerTensor.hpp"
 #include "TensorView/Utility/Memory.hpp"
 #include "TensorView/Utility/Reshape.hpp"
 

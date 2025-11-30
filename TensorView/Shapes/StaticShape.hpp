@@ -37,7 +37,7 @@ namespace tensor::details
        */
       static constexpr bool contiguous()
       {
-         return O == LinearOrder::F;
+         return Order == LinearOrder::F;
       }
 
       /**

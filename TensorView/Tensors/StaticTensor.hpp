@@ -36,6 +36,7 @@ namespace tensor
       friend struct details::TensorTraits<tensor_type>;
 
       static constexpr bool _is_mutable = ct::mutableElements();
+      static constexpr index_t _num_dims = shape_type::numDims();
 
    public:
       using value_type = typename traits::value_type;
@@ -56,21 +57,25 @@ namespace tensor
       FCStaticTensor() = default;
       ~FCStaticTensor() = default;
 
-      TENSOR_FUNC explicit FCStaticTensor(shape_type, container_type &&container_)
-          : _shape(), _container(std::move(container_))
+      constexpr FCStaticTensor(shape_type, container_type &&container_) : _shape(), _container(std::move(container_))
       {
          TENSOR_CHECK(_shape.size() <= _container.capacity(),
                       printf("FCStaticTensor size %ju exceeds container capacity %ju.\n",
                              static_cast<uintmax_t>(_shape.size()), static_cast<uintmax_t>(_container.capacity())));
       }
 
-      TENSOR_FUNC FCStaticTensor(const FCStaticTensor &other) = default;
-      TENSOR_FUNC FCStaticTensor(FCStaticTensor &&other) noexcept = default;
+      constexpr FCStaticTensor(const FCStaticTensor &other) = default;
+      constexpr FCStaticTensor(FCStaticTensor &&other) noexcept = default;
+
+      constexpr FCStaticTensor(const details::InitializerTensor<T, _num_dims>::ListType &init)
+      {
+         details::fromInitializer<T, _num_dims>(raw(), init);
+      }
 
       /**
        * @brief Element-wise copy.
        */
-      FCStaticTensor &operator=(const FCStaticTensor &other)
+      constexpr FCStaticTensor &operator=(const FCStaticTensor &other)
          requires(_is_mutable)
       {
          _container = other._container;
@@ -80,7 +85,7 @@ namespace tensor
       /**
        * @brief Element-wise copy.
        */
-      FCStaticTensor &operator=(FCStaticTensor &&other) noexcept
+      constexpr FCStaticTensor &operator=(FCStaticTensor &&other) noexcept
          requires(_is_mutable)
       {
          _container = std::move(other._container);
@@ -91,7 +96,7 @@ namespace tensor
        * @brief Elementwise copy from any tensor-like object
        */
       template <typename TensorType>
-      TENSOR_FUNC FCStaticTensor &operator=(const TensorType &other)
+      constexpr FCStaticTensor &operator=(const TensorType &other)
          requires(_is_mutable)
       {
          for (index_t i = 0; i < _shape.size(); ++i)
@@ -99,6 +104,16 @@ namespace tensor
             _container[i] = static_cast<value_type>(other[i]);
          }
 
+         return *this;
+      }
+
+      /**
+       * @brief Elementwise copy from initializer list
+       */
+      constexpr FCStaticTensor &operator=(const typename details::InitializerTensor<T, _num_dims>::ListType &init)
+         requires(_is_mutable)
+      {
+         details::fromInitializer<T, _num_dims>(raw(), init);
          return *this;
       }
 
@@ -121,7 +136,7 @@ namespace tensor
       /**
        * @brief returns the total number of elements in the tensor.
        */
-      TENSOR_FUNC index_t size() const
+      constexpr index_t size() const
       {
          return _shape.size();
       }
@@ -129,7 +144,7 @@ namespace tensor
       /**
        * @brief returns the size of the specified dimension.
        */
-      TENSOR_FUNC index_t shape(index_t dim) const
+      constexpr index_t shape(index_t dim) const
       {
          return _shape.shape(dim);
       }
@@ -137,7 +152,7 @@ namespace tensor
       /**
        * @brief returns the shape of the tensor.
        */
-      TENSOR_FUNC shape_type shape() const
+      constexpr shape_type shape() const
       {
          return _shape;
       }
@@ -145,7 +160,7 @@ namespace tensor
       /**
        * @brief Is the tensor logically empty (i.e., has zero elements)?
        */
-      TENSOR_FUNC bool empty() const
+      constexpr bool empty() const
       {
          return _shape.empty();
       }
@@ -153,39 +168,39 @@ namespace tensor
       /**
        * @brief creates a raw view of the same data with the same shape.
        */
-      TENSOR_FUNC rview raw()
+      constexpr rview raw()
       {
-         return rview(_shape, ct::makeView(_container));
+         return rview(shape_type(), ct::makeRView(_container));
       }
 
       /**
        * @brief creates a const raw view of the same data with the same shape.
        */
-      TENSOR_FUNC const_rview raw() const
+      constexpr const_rview raw() const
       {
-         return const_rview(_shape, ct::makeCView(_container));
+         return const_rview(shape_type(), ct::makeRCView(_container));
       }
 
       /**
        * @brief returns a pointer to the underlying data.
        */
-      TENSOR_FUNC value_type *data()
+      constexpr value_type *data()
       {
-         return _container.data();
+         return _container.data() + _shape.offset();
       }
 
       /**
        * @brief returns a pointer to the underlying data.
        */
-      TENSOR_FUNC const value_type *data() const
+      constexpr const value_type *data() const
       {
-         return _container.data();
+         return _container.data() + _shape.offset();
       }
 
       /**
        * @brief implicit conversion to a raw pointer.
        */
-      TENSOR_FUNC operator value_type *()
+      constexpr operator value_type *()
       {
          return data();
       }
@@ -193,7 +208,7 @@ namespace tensor
       /**
        * @brief implicit conversion to a const raw pointer.
        */
-      TENSOR_FUNC operator const value_type *() const
+      constexpr operator const value_type *() const
       {
          return data();
       }
@@ -202,7 +217,7 @@ namespace tensor
        * @brief element access with multi-dimensional indices.
        */
       template <typename... Indices>
-      TENSOR_FUNC decltype(auto) at(Indices... indices)
+      constexpr decltype(auto) at(Indices... indices)
       {
          return makeRawSubView(raw(), _shape(std::forward<Indices>(indices)...));
       }
@@ -211,7 +226,7 @@ namespace tensor
        * @brief element access with multi-dimensional indices.
        */
       template <typename... Indices>
-      TENSOR_FUNC decltype(auto) at(Indices... indices) const
+      constexpr decltype(auto) at(Indices... indices) const
       {
          return makeRawSubView(raw(), _shape(std::forward<Indices>(indices)...));
       }
@@ -220,7 +235,7 @@ namespace tensor
        * @brief element access with multi-dimensional indices.
        */
       template <typename... Indices>
-      TENSOR_FUNC decltype(auto) operator()(Indices... indices)
+      constexpr decltype(auto) operator()(Indices... indices)
       {
          return at(std::forward<Indices>(indices)...);
       }
@@ -229,7 +244,7 @@ namespace tensor
        * @brief element access with multi-dimensional indices.
        */
       template <typename... Indices>
-      TENSOR_FUNC decltype(auto) operator()(Indices... indices) const
+      constexpr decltype(auto) operator()(Indices... indices) const
       {
          return at(std::forward<Indices>(indices)...);
       }
@@ -237,7 +252,7 @@ namespace tensor
       /**
        * @brief element access with linear indices.
        */
-      TENSOR_FUNC decltype(auto) operator[](index_t index)
+      constexpr decltype(auto) operator[](index_t index)
       {
          return _container[_shape[index]];
       }
@@ -245,7 +260,7 @@ namespace tensor
       /**
        * @brief element access with linear indices.
        */
-      TENSOR_FUNC decltype(auto) operator[](index_t index) const
+      constexpr decltype(auto) operator[](index_t index) const
       {
          return _container[_shape[index]];
       }
@@ -253,7 +268,7 @@ namespace tensor
       /**
        * @brief returns an iterator to the beginning.
        */
-      inline iterator begin()
+      constexpr iterator begin()
       {
          return iterator(_shape, ct::makeRView(_container), 0);
       }
@@ -261,7 +276,7 @@ namespace tensor
       /**
        * @brief returns a const iterator to the beginning.
        */
-      inline const_iterator begin() const
+      constexpr const_iterator begin() const
       {
          return const_iterator(_shape, ct::makeRCView(_container), 0);
       }
@@ -269,7 +284,7 @@ namespace tensor
       /**
        * @brief returns an iterator to the end.
        */
-      inline iterator end()
+      constexpr iterator end()
       {
          return iterator(_shape, ct::makeRView(_container), size());
       }
@@ -277,7 +292,7 @@ namespace tensor
       /**
        * @brief returns a const iterator to the end.
        */
-      inline const_iterator end() const
+      constexpr const_iterator end() const
       {
          return const_iterator(_shape, ct::makeRCView(_container), size());
       }
@@ -285,7 +300,7 @@ namespace tensor
       /**
        * @brief returns a reverse iterator to the beginning.
        */
-      inline reverse_iterator rbegin()
+      constexpr reverse_iterator rbegin()
       {
          return reverse_iterator(end());
       }
@@ -293,7 +308,7 @@ namespace tensor
       /**
        * @brief returns a const reverse iterator to the beginning.
        */
-      inline const_reverse_iterator rbegin() const
+      constexpr const_reverse_iterator rbegin() const
       {
          return const_reverse_iterator(end());
       }
@@ -301,7 +316,7 @@ namespace tensor
       /**
        * @brief returns a reverse iterator to the end.
        */
-      inline reverse_iterator rend()
+      constexpr reverse_iterator rend()
       {
          return reverse_iterator(begin());
       }
@@ -309,7 +324,7 @@ namespace tensor
       /**
        * @brief returns a const reverse iterator to the end.
        */
-      inline const_reverse_iterator rend() const
+      constexpr const_reverse_iterator rend() const
       {
          return const_reverse_iterator(begin());
       }

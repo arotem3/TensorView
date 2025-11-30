@@ -66,11 +66,11 @@ namespace tensor::details
       }
 
       /**
-       * @brief Returns the total range in memory covered by the shape.
+       * @brief Returns the total range in memory covered by the shape past offset.
        */
       constexpr index_t extent() const
       {
-         return size() + offset();
+         return size();
       }
 
       /**
@@ -203,9 +203,11 @@ namespace tensor::details
       static constexpr shape_type makeLike(const ShapeLike &other)
       {
          shape_type shape;
-         constexpr index_t other_num_dims = ShapeTraits<ShapeLike>::numDims();
-         static_assert(other_num_dims <= NumDims,
-                       "Cannot make StandardShape like ShapeLike with more dimensions than NumDims.");
+         const index_t other_num_dims = other.numDims();
+
+         TENSOR_DEBUG_ASSERT(other_num_dims <= NumDims,
+                             printf("Cannot make StandardShape with %ju dimensions like shape with %ju dimensions.\n",
+                                    static_cast<uintmax_t>(NumDims), static_cast<uintmax_t>(other_num_dims)));
 
          for (index_t i = 0; i < NumDims; ++i)
          {
