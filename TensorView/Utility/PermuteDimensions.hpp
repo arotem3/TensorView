@@ -1,109 +1,62 @@
 #pragma once
+#include "TensorView/Access/StridedPattern.hpp"
 #include "TensorView/Macros.hpp"
-#include "TensorView/Shapes/StridedShape.hpp"
-#include "TensorView/Tensors/PersistentView.hpp"
-#include "TensorView/Tensors/RawView.hpp"
 #include "TensorView/Tensors/TView.hpp"
 
 namespace tensor
 {
-   /**
-    * @brief Returns a view of the given tensor-like object with its dimensions permuted according to the specified
-    * order.
-    *
-    * @example
-    * Tensor<double, 2> A = {{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-    * std::vector<int> perm = {1, 0};
-    * auto At = permuteDimensions(A, perm); // Transpose of A
-    *
-    * @param x The tensor-like object to permute.
-    * @param perm A random access range specifying the new order of dimensions.
-    * @return A view of the tensor with permuted dimensions.
-    */
-   template <typename TensorLike, std::ranges::random_access_range Permutation>
-   auto permuteDimensions(TensorLike &&x, Permutation &&perm)
-      requires(details::TensorTraits<std::decay_t<TensorLike>>::value)
+   namespace details
    {
-      using tensor_type = std::decay_t<TensorLike>;
-      using traits = details::TensorTraits<tensor_type>;
-      using value_type = typename traits::value_type;
-
-      constexpr MemorySpace mem_space = traits::container_traits::memorySpace();
-      constexpr index_t numDims = tensor_type::numDims();
-
-      TENSOR_CHECK(perm.size() == numDims,
-                   printf("Permutation size %ju must match the number of dimensions %ju in the tensor.\n",
-                          static_cast<uintmax_t>(perm.size()), static_cast<uintmax_t>(numDims)));
-
-      TENSOR_CHECK(
-          [&]() constexpr
-          {
-             for (auto p : perm)
-             {
-                if (static_cast<index_t>(p) >= numDims || (std::is_signed_v<Permutation> && p < 0))
-                   return false;
-             }
-             return true;
-          }(),
-          printf("Permutation indices must be within the valid range of dimensions."));
-
-      TENSOR_CHECK(
-          [=]() constexpr
-          {
-             uint_fast8_t seen[numDims] = {0};
-             for (auto p : perm)
-                if (seen[p]++ != 0)
-                   return false;
-             return true;
-          }(),
-          printf("Permutation indices must be unique and cover all dimensions."));
-
-      using shape_traits = details::ShapeTraits<details::StridedShape<numDims>>;
-      details::StridedShape<numDims> shp = shape_traits::from(x.shape());
-
-      std::array<index_t, numDims> perm_shape, perm_strides;
-      for (index_t i = 0; i < numDims; ++i)
+      template <size_t N, IndexLike... I>
+      constexpr bool validPemutation(I... i)
       {
-         index_t p = perm[i];
-         perm_shape[i] = shp.shape(p);
-         perm_strides[i] = shp.stride(p);
+         uint8_t seen[N] = {0};
+         // (correct number of elements) && (all elements in range) && (all elements are unique)
+         return (sizeof...(I) == N) &&
+                ((static_cast<size_t>(i) < N && (std::is_unsigned_v<I> || i >= 0)) && ... && true) &&
+                ((seen[i]++ == 0) && ... && true);
       }
 
-      details::StridedShape<numDims> new_shp(std::move(perm_shape), std::move(perm_strides), shp.offset());
+      template <size_t N, IndexLike... Permutation>
+      auto selectFromIndexSet(const CartesianIndexSet<N> &index_set, Permutation... p)
+      {
+         return CartesianIndexSet<N>{index_set[p]...};
+      }
 
-      using view =
-          std::conditional_t<details::is_persistent_view_v<tensor_type>, SubView<value_type, numDims, mem_space>,
-                             RawSubView<value_type, numDims, mem_space>>;
+      template <size_t N, IndexLike... Permutation>
+      auto selectFromIndexSet(AllProduct<N>, Permutation...)
+      {
+         return AllProduct<N>{};
+      }
+   } // namespace details
 
-      using ct = details::ContainerTraits<typename view::container_type>;
+   template <typename TensorLike, IndexLike... Permutation>
+   constexpr auto permuteDimensions(TensorLike &&x, Permutation... permutation)
+   {
+      using namespace tensor::details;
 
-      return view(std::move(new_shp), ct::from(traits::container(x)));
+      using tensor_type = std::remove_cvref_t<TensorLike>;
+      using traits = TensorTraits<tensor_type>;
+
+      constexpr index_t numDims = tensor_type::numDims();
+
+      TENSOR_CHECK(validPemutation<numDims>(permutation...),
+                   printf("Permutation must consist of N unique elements in the range 0...N-1"));
+
+      auto [layout, index_set] = unpackAccessPattern(makeStridedPatternFrom(x.shape()));
+
+      StridedLayout<numDims> permuted_layout{{layout.dimensions[permutation]...}};
+      auto permuted_index_set = details::selectFromIndexSet(index_set, permutation...);
+
+      return makeView(makeAccessPattern(std::move(permuted_layout), std::move(permuted_index_set)),
+                      traits::container(std::forward<TensorLike>(x)));
    }
 
-   /**
-    * @brief Returns a view of the given tensor-like object with its dimensions permuted according to the specified
-    * order.
-    *
-    * @example
-    * Tensor<double, 2> A = {{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}};
-    * auto At = permuteDimensions(A, 1, 0); // Transpose of A
-    *
-    * @param x The tensor-like object to permute.
-    * @param perm A variadic list of dimension indices specifying the new order of dimensions.
-    * @return A view of the tensor with permuted dimensions.
-    */
-   template <typename TensorLike, IndexLike... Permutation>
-   auto permuteDimensions(TensorLike &&x, Permutation... perm)
-      requires(details::TensorTraits<std::decay_t<TensorLike>>::value)
+   template <typename TensorLike>
+   constexpr auto permuteDimensions(TensorLike &&x,
+                                    std::array<size_t, std::remove_cvref_t<TensorLike>::numDims()> permutation)
    {
-      constexpr index_t num_perms = sizeof...(Permutation);
-      constexpr index_t numDims = details::TensorTraits<std::decay_t<TensorLike>>::shape_traits::numDims();
-
-      static_assert(num_perms == numDims,
-                    "Number of permutation indices must match the number of dimensions in the tensor.");
-
-      return permuteDimensions(std::forward<TensorLike>(x),
-                               std::array<index_t, num_perms>{static_cast<index_t>(perm)...});
+      return std::apply([&](auto... p) { return permuteDimensions(std::forward<TensorLike>(x), p...); }, permutation);
    }
 
    /**
@@ -117,7 +70,7 @@ namespace tensor
     * @return A view of the matrix with transposed dimensions.
     */
    template <typename MatrixLike>
-   auto transpose(MatrixLike &&x)
+   constexpr auto transpose(MatrixLike &&x)
    {
       return permuteDimensions(std::forward<MatrixLike>(x), 1, 0);
    }
