@@ -1,14 +1,12 @@
 #pragma once
 #include "TensorView/Containers/ContainerTraits.hpp"
 #include "TensorView/Macros.hpp"
-#include "TensorView/Shapes/ShapeTraits.hpp"
 
 namespace tensor::details
 {
    template <typename TensorType>
    struct TensorTraits : std::false_type
-   {
-   };
+   {};
    /*
       using tensor_type = TensorType;
       using value_type; // type of tensor elements

@@ -15,15 +15,6 @@ namespace tensor
       return FCTensor<Scalar, numDims, Order, MemSpace>(std::forward<Dims>(dims)...);
    }
 
-   namespace details
-   {
-      template <typename value_type_out, LinearOrder Order, MemorySpace MemSpace, typename TensorType, size_t... I>
-      auto makeTensorLikeImpl(const TensorType &tensor, std::index_sequence<I...>)
-      {
-         return makeTensor<value_type_out, Order, MemSpace>(tensor.shape(I)...);
-      }
-   } // namespace details
-
    /**
     * @brief creates a Tensor with the same shape as the input tensor.
     */
@@ -34,7 +25,10 @@ namespace tensor
       using value_type = std::conditional_t<std::is_same_v<value_type_out, void>,
                                             std::decay_t<typename TensorType::value_type>, value_type_out>;
       constexpr size_t NumDims = TensorType::numDims();
-      return details::makeTensorLikeImpl<value_type, Order, MemSpace>(tensor, std::make_index_sequence<NumDims>());
+      using shape_type = details::StandardPattern<NumDims, Order>;
+      auto shape = details::makePatternLike<shape_type>(tensor);
+      details::OwningContainer<value_type, MemSpace> container(shape.extent());
+      return details::makeTensorBase<true>(std::move(shape), std::move(container));
    }
 
 } // namespace tensor

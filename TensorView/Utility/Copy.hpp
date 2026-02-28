@@ -107,12 +107,12 @@ namespace tensor::details
       static_assert(std::is_convertible_v<src_t, dst_t>,
                     "source value_type must be convertible to destination value_type.");
 
-      constexpr MemorySpace ms_src = ct_src::memorySpace();
-      constexpr MemorySpace ms_dst = ct_dst::memorySpace();
-
       TENSOR_REQUIRE_EQUAL_SHAPES(src, dst);
 
 #ifdef TENSOR_USE_CUDA
+      constexpr MemorySpace ms_src = ct_src::memorySpace();
+      constexpr MemorySpace ms_dst = ct_dst::memorySpace();
+
       // If the memory spaces are not compatible, use managed memory as an intermediate buffer.
       if constexpr (!compatibleMemorySpaces(ms_src, ms_dst))
       {
@@ -122,19 +122,10 @@ namespace tensor::details
          deallocate<MemorySpace::Managed>(tmp);
          return;
       }
-#endif
-      // Direct copy since memory spaces are compatible.
-      if constexpr (ms_src == MemorySpace::Host || ms_dst == MemorySpace::Host)
-      {
-         const index_t n = src.size();
-         for (index_t i = 0; i < n; ++i)
-            dst[i] = src[i];
-      }
       else
       {
-#ifdef TENSOR_USE_CUDA
-         auto rview_src = src.makeRawView();
-         auto rview_dst = dst.makeRawView();
+         auto rview_src = src.raw();
+         auto rview_dst = dst.raw();
          const index_t n = rview_src.size();
          const index_t blockSize = 256;
          const index_t numBlocks = (n + blockSize - 1) / blockSize;
@@ -142,9 +133,11 @@ namespace tensor::details
          copyTensorToTensorKernel<<<numBlocks, blockSize>>>(rview_src, rview_dst);
          TENSOR_DEBUG_ASSERT(cudaDeviceSynchronize() == cudaSuccess,
                              printf("cudaDeviceSynchronize failed after copyTensorToTensor\n"));
-#else
-         static_assert(!sizeof(Src), "Device memory space requested but CUDA not enabled.");
-#endif
       }
+#else
+      const index_t n = src.size();
+      for (index_t i = 0; i < n; ++i)
+         dst[i] = src[i];
+#endif
    }
 } // namespace tensor::details

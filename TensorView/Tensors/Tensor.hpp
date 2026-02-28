@@ -1,8 +1,8 @@
 #pragma once
+#include "TensorView/Access/StandardPattern.hpp"
+#include "TensorView/Containers/OwningContainer.hpp"
 #include "TensorView/Macros.hpp"
-#include "TensorView/Shapes/StandardShape.hpp"
-#include "TensorView/Tensors/PersistentView.hpp"
-#include "TensorView/Utility/Copy.hpp"
+#include "TensorView/Tensors/TensorBase.hpp"
 
 namespace tensor
 {
@@ -16,7 +16,8 @@ namespace tensor
     * @tparam MemSpace the memory space where the tensor data is stored
     */
    template <typename Scalar, size_t NumDims, LinearOrder Order, MemorySpace MemSpace = MemorySpace::Host>
-   using FCTensor = details::PersistentView<details::StandardShape<NumDims, Order>, Scalar, MemSpace, true>;
+   using FCTensor =
+       details::TensorBase<details::StandardPattern<NumDims, Order>, details::OwningContainer<Scalar, MemSpace>, true>;
 
    template <typename Scalar, size_t NumDims, MemorySpace MemSpace = MemorySpace::Host>
    using FTensor = FCTensor<Scalar, NumDims, LinearOrder::F, MemSpace>;
@@ -28,16 +29,6 @@ namespace tensor
    using Tensor = FTensor<Scalar, NumDims, MemSpace>;
 
    template <typename Scalar, size_t NumDims, LinearOrder Order, MemorySpace MemSpace>
-   using PView = details::PersistentView<details::StandardShape<NumDims, Order>, Scalar, MemSpace, false>;
-
-   /**
-    * @brief High dimensional persistent/reference sub-view of a tensor.
-    * The SubView extends the lifetime of the underlying data it references.
-    *
-    * @tparam Scalar the type of elements in the tensor e.g. float
-    * @tparam NumDims The number of dimensions of the tensor, e.g., 2 for a matrix
-    * @tparam MemSpace the memory space where the tensor data is stored
-    */
-   template <typename Scalar, size_t NumDims, MemorySpace MemSpace>
-   using SubView = details::PersistentView<details::StridedShape<NumDims>, Scalar, MemSpace, false>;
+   using PView =
+       details::TensorBase<details::StandardPattern<NumDims, Order>, details::OwningContainer<Scalar, MemSpace>, false>;
 } // namespace tensor
