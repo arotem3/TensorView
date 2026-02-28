@@ -31,8 +31,7 @@ namespace tensor::details
        */
       inline OwningContainer(index_t capacity = 0)
           : _data(tensor::allocate<T, MemSpace>(capacity), tensor::deleter<T, MemSpace>{}), _capacity{capacity}
-      {
-      }
+      {}
 
       ~OwningContainer() = default;
       OwningContainer(const OwningContainer &) = default;
@@ -46,8 +45,7 @@ namespace tensor::details
       template <typename U, MemorySpace MS>
          requires(compatibleMemorySpaces(MemSpace, MS))
       inline OwningContainer(const OwningContainer<U, MS> &other) : _data(other._data), _capacity{other.capacity()}
-      {
-      }
+      {}
 
       /**
        * @brief Returns a pointer to the underlying data.
@@ -142,10 +140,6 @@ namespace tensor::details
    {
       using value_type = T;
       using container_type = OwningContainer<T, MemSpace>;
-      using rview_type = ViewContainer<T, MemSpace>;
-      using rcview_type = ViewContainer<const T, MemSpace>;
-      using pview_type = OwningContainer<T, MemSpace>;
-      using pcview_type = OwningContainer<const T, MemSpace>;
 
       static constexpr bool owning()
       {
@@ -162,25 +156,35 @@ namespace tensor::details
          return MemSpace;
       }
 
-      static inline rview_type makeRView(container_type &x)
+      static inline auto makeView(container_type &x)
       {
-         return rview_type(x.data(), x.capacity());
+         return container_type(x);
       }
 
-      static inline rcview_type makeRCView(const container_type &x)
+      static inline auto makeView(const container_type &x)
       {
-         return rcview_type(x.data(), x.capacity());
+         using rcview = OwningContainer<const T, MemSpace>;
+         return rcview(x);
       }
 
-      static inline pview_type makePView(container_type &x)
+      static inline auto makeView(container_type &&x)
       {
-         return pview_type(x);
+         return std::move(x);
       }
 
-      static inline pcview_type makePCView(const container_type &x)
+      static inline auto makeRView(container_type &x)
       {
-         return pcview_type(x);
+         using rview = ViewContainer<T, MemSpace>;
+         return rview(x.data(), x.capacity());
       }
+
+      static inline auto makeRView(const container_type &x)
+      {
+         using rcview = ViewContainer<const T, MemSpace>;
+         return rcview(x.data(), x.capacity());
+      }
+
+      static void makeRView(container_type &&x) = delete; // cannot move an OwningContainer to a ViewContainer
 
       template <typename U, MemorySpace MS>
       static container_type from(const OwningContainer<U, MS> &other)

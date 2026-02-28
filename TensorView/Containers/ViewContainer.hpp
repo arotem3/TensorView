@@ -33,15 +33,13 @@ namespace tensor::details
 
       template <typename U>
       constexpr ViewContainer(U *ptr, index_t capacity) : _ptr{static_cast<pointer>(ptr)}, _capacity{capacity}
-      {
-      }
+      {}
 
       template <typename U, MemorySpace MS>
          requires(compatibleMemorySpaces(MemSpace, MS))
       constexpr ViewContainer(const ViewContainer<U, MS> &other)
           : _ptr{static_cast<pointer>(other.data())}, _capacity{other.capacity()}
-      {
-      }
+      {}
 
       constexpr index_t capacity() const
       {
@@ -51,6 +49,11 @@ namespace tensor::details
       constexpr pointer data() const
       {
          return _ptr;
+      }
+
+      constexpr bool unique() const
+      {
+         return false;
       }
 
       TENSOR_FUNC reference operator[](index_t index)
@@ -97,8 +100,6 @@ namespace tensor::details
    {
       using value_type = T;
       using container_type = ViewContainer<T, MemSpace>;
-      using rview_type = ViewContainer<T, MemSpace>;
-      using rcview_type = ViewContainer<const T, MemSpace>;
 
       static constexpr bool owning()
       {
@@ -115,14 +116,36 @@ namespace tensor::details
          return MemSpace;
       }
 
-      static TENSOR_FUNC rview_type makeRView(container_type &x)
+      static constexpr auto makeRView(container_type &x)
       {
-         return rview_type(x.data(), x.capacity());
+         using rview = container_type;
+         return rview(x);
       }
 
-      static TENSOR_FUNC rcview_type makeRCView(const container_type &x)
+      static constexpr auto makeRView(const container_type &x)
       {
-         return rcview_type(x.data(), x.capacity());
+         using rcview = ViewContainer<const T, MemSpace>;
+         return rcview(x.data(), x.capacity());
+      }
+
+      static constexpr auto makeRView(container_type &&x)
+      {
+         return std::move(x);
+      }
+
+      static constexpr auto makeView(container_type &x)
+      {
+         return makeRView(x);
+      }
+
+      static constexpr auto makeView(const container_type &x)
+      {
+         return makeRView(x);
+      }
+
+      static constexpr auto makeView(container_type &&x)
+      {
+         return std::move(x);
       }
 
       template <typename U, MemorySpace MS>
@@ -138,4 +161,8 @@ namespace tensor::details
          return container_type(other.data(), other.capacity());
       }
    };
+
+   template <typename T, MemorySpace MemSpace>
+   struct IsRawContainer<ViewContainer<T, MemSpace>> : std::true_type
+   {};
 } // namespace tensor::details

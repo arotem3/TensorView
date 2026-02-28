@@ -25,8 +25,6 @@ namespace tensor::details
    {
       using value_type = T;
       using container_type = StaticContainer<T, N>;
-      using rview_type = ViewContainer<T, MemorySpace::Unspecified>;
-      using rcview_type = ViewContainer<const T, MemorySpace::Unspecified>;
 
       static constexpr bool owning()
       {
@@ -43,19 +41,46 @@ namespace tensor::details
          return MemorySpace::Unspecified;
       }
 
-      static TENSOR_FUNC rview_type makeRView(container_type &x)
+      static constexpr auto makeRView(container_type &x)
       {
-         return rview_type(x.data(), x.capacity());
+         using rview = ViewContainer<T, MemorySpace::Unspecified>;
+         return rview(x.data(), x.capacity());
       }
 
-      static TENSOR_FUNC rcview_type makeRCView(const container_type &x)
+      static constexpr auto makeRView(const container_type &x)
       {
-         return rcview_type(x.data(), x.capacity());
+         using rcview = ViewContainer<const T, MemorySpace::Unspecified>;
+         return rcview(x.data(), x.capacity());
       }
+
+      static void makeRView(container_type &&x) = delete; // cannot move static container to view
+
+      static constexpr auto makeView(container_type &x)
+      {
+         return makeRView(x);
+      }
+
+      static constexpr auto makeView(const container_type &x)
+      {
+         return makeRView(x);
+      }
+
+      static void makeView(container_type &&x) = delete; // cannot move static container to view
 
       static constexpr container_type from(const container_type &other)
       {
          return container_type(other);
       }
    };
+
+   template <typename T>
+   struct IsStaticContainer : std::false_type
+   {};
+
+   template <typename T, index_t N>
+   struct IsStaticContainer<StaticContainer<T, N>> : std::true_type
+   {};
+
+   template <typename T>
+   inline constexpr bool is_static_container = IsStaticContainer<T>::value;
 } // namespace tensor::details
