@@ -93,3 +93,9 @@ namespace tensor
 
 // Always-on lightweight check
 #define TENSOR_CHECK(cond, msg) __TENSOR_ASSERT_IMPL(cond, msg)
+
+#if __cplusplus >= 202302L
+#define TENSOR_UNREACHABLE() std::unreachable()
+#else
+#define TENSOR_UNREACHABLE() ((void)0)
+#endif
