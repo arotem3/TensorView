@@ -5,88 +5,40 @@
 #include "TensorView/Tensors/TView.hpp"
 #include "TensorView/Tensors/Tensor.hpp"
 
+namespace tensor::details
+{
+   template <LinearOrder Order, typename Pattern>
+   consteval bool standardPatternCompatible()
+   {
+      if constexpr (is_standard_pattern<Pattern>)
+         return (IsStandardPattern<Pattern>::order == Order);
+      else if constexpr (is_static_pattern<Pattern>)
+         return (IsStaticPattern<Pattern>::order == Order);
+      else
+         return false;
+   }
+} // namespace tensor::details
+
 namespace tensor
 {
    template <LinearOrder Order = LinearOrder::F, MemorySpace MemSpace = MemorySpace::Host, typename T,
-             IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(T *data, Sizes... dims)
+             IndexLike... Dimensions>
+   TENSOR_FUNC auto reshape(T *data, Dimensions... dims)
    {
-      using view = FCTensorView<T, sizeof...(Sizes), Order, MemSpace>;
-
-      using traits = details::TensorTraits<view>;
-      using shape = typename traits::shape_type;
-      using container = typename traits::container_type;
-
-      shape s(dims...);
-      container c(data, s.size());
-
-      return view(std::move(s), std::move(c));
+      return FCTensorView<T, sizeof...(Dimensions), Order, MemSpace>(data, dims...);
    }
 
-   template <typename T, index_t NumDims, LinearOrder Order, MemorySpace MemSpace, IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(FCTensorView<T, NumDims, Order, MemSpace> &tensor, Sizes... shape)
+   template <LinearOrder Order = LinearOrder::F, typename TensorType, IndexLike... Dimensions>
+   auto reshape(const TensorType &tensor, Dimensions... dims)
    {
-      return reshape<Order, MemSpace>(tensor.data(), shape...);
-   }
+      using traits = details::TensorTraits<std::remove_cvref_t<TensorType>>;
+      using shape = details::StandardPattern<sizeof...(Dimensions), Order>;
 
-   template <typename T, index_t NumDims, LinearOrder Order, MemorySpace MemSpace, IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(const FCTensorView<T, NumDims, Order, MemSpace> &tensor, Sizes... shape)
-   {
-      return reshape<Order, MemSpace>(tensor.data(), shape...);
-   }
+      static_assert(details::standardPatternCompatible<Order, typename traits::shape_type>(),
+                    "Tensor's shape is not compatible with the requested standard layout order.");
 
-   template <typename T, index_t NumDims, LinearOrder Order, MemorySpace MemSpace, IndexLike... Sizes>
-   auto reshape(FCTensor<T, NumDims, Order, MemSpace> &tensor, Sizes... dims)
-   {
-      using view = PView<T, sizeof...(Sizes), Order, MemSpace>;
-
-      using from_traits = details::TensorTraits<FCTensor<T, NumDims, Order, MemSpace>>;
-      using to_traits = details::TensorTraits<view>;
-      using shape = typename to_traits::shape_type;
-      using container = typename to_traits::container_type;
-
-      shape s(dims...);
-      container c = details::ContainerTraits<container>::from(from_traits::container(tensor));
-      return view(std::move(s), std::move(c));
-   }
-
-   template <typename T, index_t NumDims, LinearOrder Order, MemorySpace MemSpace, IndexLike... Sizes>
-   auto reshape(const FCTensor<T, NumDims, Order, MemSpace> &tensor, Sizes... dims)
-   {
-      using view = PView<const T, sizeof...(Sizes), Order, MemSpace>;
-
-      using from_traits = details::TensorTraits<FCTensor<T, NumDims, Order, MemSpace>>;
-      using to_traits = details::TensorTraits<view>;
-      using shape = typename to_traits::shape_type;
-      using container = typename to_traits::container_type;
-
-      shape s(dims...);
-      container c = details::ContainerTraits<container>::from(from_traits::container(tensor));
-      return view(std::move(s), std::move(c));
-   }
-
-   template <typename T, LinearOrder Order, index_t... Dims, IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(FCStaticTensor<T, Order, Dims...> &tensor, Sizes... dims)
-   {
-      return reshape<Order, MemorySpace::Unspecified>(tensor.data(), dims...);
-   }
-
-   template <typename T, LinearOrder Order, index_t... Dims, IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(const FCStaticTensor<T, Order, Dims...> &tensor, Sizes... dims)
-   {
-      return reshape<Order, MemorySpace::Unspecified>(tensor.data(), dims...);
-   }
-
-   template <typename T, LinearOrder Order, index_t... Dims, IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(FCStaticView<T, Order, Dims...> &view, Sizes... dims)
-   {
-      return reshape<Order, MemorySpace::Unspecified>(view.data(), dims...);
-   }
-
-   template <typename T, LinearOrder Order, index_t... Dims, IndexLike... Sizes>
-   TENSOR_FUNC auto reshape(const FCStaticView<T, Order, Dims...> &view, Sizes... dims)
-   {
-      return reshape<Order, MemorySpace::Unspecified>(view.data(), dims...);
+      shape s = details::makeStandardPattern<sizeof...(Dimensions), Order>(dims...);
+      return details::makeView(std::move(s), traits::container(tensor));
    }
 
    template <typename T, LinearOrder Order = LinearOrder::F, MemorySpace MemSpace = MemorySpace::Unspecified,
