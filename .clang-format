@@ -2,11 +2,25 @@ BasedOnStyle: Google
 IndentWidth: 3
 ColumnLimit: 120
 
-BreakBeforeBraces: Allman
+BreakBeforeBraces: Custom
 NamespaceIndentation: All
 SpacesBeforeTrailingComments: 1
 AccessModifierOffset: -3
 BreakTemplateDeclarations: Yes
+
+BraceWrapping:
+  # Explicitly set Allman-style wrapping for most cases:
+  AfterClass: true
+  AfterStruct: true
+  AfterControlStatement: true
+  AfterEnum: true
+  AfterFunction: true
+  AfterNamespace: true
+  AfterUnion: true
+  BeforeElse: true
+
+  SplitEmptyRecord: false # Keep empty structs/classes on one line
+  SplitEmptyFunction: false # Keep empty functions on one line
 
 DerivePointerAlignment: false
 PointerAlignment: Right
