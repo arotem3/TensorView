@@ -12,12 +12,9 @@ namespace tensor::details
    /**
     * @brief Optimized overload for AllProduct on contiguous StandardLayout.
     */
-   template <index_t NumDims, size_t N>
-   constexpr index_t computeLinearIndex(index_t index, const FLayout<NumDims> &layout, const AllProduct<N> &)
+   template <index_t NumDims>
+   constexpr index_t computeLinearIndex(index_t index, const FLayout<NumDims> &layout, AllProduct<NumDims>)
    {
-      static_assert(static_cast<size_t>(NumDims) == N,
-                    "AllProduct dimensionality must match StandardLayout dimensionality.");
-
       TENSOR_DEBUG_ASSERT(index < layout.size(),
                           printf("Linear index %jd out of bounds for layout of size %jd\n",
                                  static_cast<uintmax_t>(index), static_cast<uintmax_t>(layout.size())));
@@ -28,12 +25,10 @@ namespace tensor::details
    /**
     * @brief Optimized overload for AllProduct on contiguous StaticLayout.
     */
-   template <index_t... Dimensions, size_t N>
+   template <index_t... Dimensions>
    constexpr index_t computeLinearIndex(index_t index, const FStaticLayout<Dimensions...> &layout,
-                                        const AllProduct<N> &)
+                                        AllProduct<sizeof...(Dimensions)>)
    {
-      static_assert(sizeof...(Dimensions) == N, "AllProduct dimensionality must match StaticLayout dimensionality.");
-
       TENSOR_DEBUG_ASSERT(index < layout.size(),
                           printf("Linear index %jd out of bounds for layout of size %jd\n",
                                  static_cast<uintmax_t>(index), static_cast<uintmax_t>(layout.size())));
@@ -45,8 +40,9 @@ namespace tensor::details
     * @brief Optimized overload for AllProduct - no composition needed, just return offset + index.
     */
    template <typename Layout, size_t N>
-   constexpr index_t computeLinearIndex(index_t index, const Layout &layout, const AllProduct<N> &)
+   constexpr index_t computeLinearIndex(index_t index, const Layout &layout, AllProduct<N>)
    {
+      static_assert(Layout::numDims() == N, "Layout and AllProduct must have the same number of dimensions.");
       TENSOR_DEBUG_ASSERT(index < layout.size(),
                           printf("Linear index %jd out of bounds for layout of size %jd\n",
                                  static_cast<uintmax_t>(index), static_cast<uintmax_t>(layout.size())));
@@ -54,9 +50,6 @@ namespace tensor::details
       return layout.at(computeProductIndex(layout, index));
    }
 
-   /**
-    * @brief Helper implementation to compose indices from an array.
-    */
    template <size_t N, size_t... I>
    auto composeIndicesArrayImpl(const CartesianIndexSet<N> &index_set, const std::array<index_t, N> &indices,
                                 std::index_sequence<I...>)

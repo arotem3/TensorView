@@ -6,43 +6,34 @@
 
 namespace tensor::details
 {
-   /**
-    * @brief Composes two index types, reducing to IndexVariant (All, Range, or index_t).
-    * When composing Range with Range, computes the resulting Range directly.
-    */
-   template <typename Outer, typename Inner>
-   constexpr auto composeImpl(const Outer &outer, const Inner &inner)
+   template <typename T>
+   constexpr decltype(auto) passAsIndex(T &&value)
    {
-      if constexpr (std::is_same_v<Inner, All>)
+      if constexpr (IndexLike<T>)
+         return static_cast<index_t>(value);
+      else
+         return std::forward<T>(value);
+   }
+
+   template <typename Inner>
+   constexpr auto compose(All, const Inner &inner)
+   {
+      return passAsIndex(inner);
+   }
+
+   template <typename Inner>
+   constexpr auto compose(const Range &outer, const Inner &inner)
+   {
+      decltype(auto) i = passAsIndex(inner);
+      using inner_t = std::decay_t<decltype(i)>;
+
+      if constexpr (IndexLike<inner_t>)
+         return outer[i];
+      else if constexpr (std::is_same_v<inner_t, Range>)
+         return Range{outer.begin + i.begin * outer.stride, outer.begin + i.end * outer.stride,
+                      outer.stride * i.stride};
+      else if constexpr (std::is_same_v<inner_t, All>)
          return outer;
-      else if constexpr (IndexLike<Outer>)
-         return static_cast<index_t>(outer);
-      else if constexpr (IndexLike<Inner>)
-      {
-         auto idx = static_cast<index_t>(inner);
-         if constexpr (std::is_same_v<Outer, All>)
-            return idx;
-         else if constexpr (std::is_same_v<Outer, Range>)
-            return outer[idx];
-         else
-         {
-            TENSOR_UNREACHABLE();
-            return index_t{0};
-         }
-      }
-      else if constexpr (std::is_same_v<Inner, Range>)
-      {
-         if constexpr (std::is_same_v<Outer, All>)
-            return inner;
-         else if constexpr (std::is_same_v<Outer, Range>)
-            return Range{outer.begin + inner.begin * outer.stride, outer.begin + inner.end * outer.stride,
-                         outer.stride * inner.stride};
-         else
-         {
-            TENSOR_UNREACHABLE();
-            return index_t{0};
-         }
-      }
       else
       {
          TENSOR_UNREACHABLE();
@@ -50,12 +41,18 @@ namespace tensor::details
       }
    }
 
+   template <typename Inner>
+   constexpr auto compose(const index_t &outer, const Inner &)
+   {
+      return passAsIndex(outer);
+   }
+
    /**
     * @brief Composes two IndexVariants.
     */
    inline tensor::IndexVariant compose(const tensor::IndexVariant &outer, const tensor::IndexVariant &inner)
    {
-      return std::visit([](const auto &o, const auto &i) -> tensor::IndexVariant { return composeImpl(o, i); }, outer,
+      return std::visit([](const auto &o, const auto &i) -> tensor::IndexVariant { return compose(o, i); }, outer,
                         inner);
    }
 } // namespace tensor::details
