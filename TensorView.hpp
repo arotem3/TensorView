@@ -16,6 +16,10 @@
 #include "TensorView/Utility/PermuteDimensions.hpp"
 #include "TensorView/Utility/Reshape.hpp"
 
+#ifdef TENSOR_USE_FFTW
+#include "TensorView/FFT/fft.hpp"
+#endif
+
 namespace tensor
 {
    template <typename scalar, MemorySpace MemSpace = MemorySpace::Host>

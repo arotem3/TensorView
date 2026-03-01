@@ -25,7 +25,7 @@ namespace tensor::details
       TENSOR_CHECK(guru_opt, printf("Failed to create FFTW guru layout view.\n"));
       auto &guru = *guru_opt;
 
-      int sign = forward ? -1 : 1;
+      int sign = forward ? FFTW_FORWARD : FFTW_BACKWARD;
 
       fftw_plan plan = fftw_plan_guru64_dft(guru.rank, guru.dims.get(), guru.howmany_rank, guru.howmany_dims.get(),
                                             reinterpret_cast<fftw_complex *>(guru.in),
