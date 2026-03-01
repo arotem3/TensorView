@@ -98,6 +98,14 @@ namespace tensor::details
       }
 
       /**
+       * @brief returns the memory space of the tensor.
+       */
+      static constexpr MemorySpace memorySpace()
+      {
+         return ct::memorySpace();
+      }
+
+      /**
        * @brief returns whether this TensorBase owns its data.
        */
       static constexpr bool owning()
@@ -339,7 +347,8 @@ namespace tensor::details
       }
 
       /**
-       * @brief Elementwise copy from any tensor-like object. DOES NOT REBIND VIEWS.
+       * @brief Elementwise copy from any tensor-like object (including other TensorBase instances).
+       * DOES NOT REBIND VIEWS.
        * If Owner, then reshapes and copies data. Ownership of the old data is released. Active persistent/reference
        * views remain valid; raw views become undefined behavior. If not Owner, then copies data if shapes match,
        * otherwise raises an error.
@@ -350,7 +359,7 @@ namespace tensor::details
       {
          if constexpr (Owner && !is_static_pattern<shape_type>)
          {
-            _access_pattern = makePatternLike<shape_type>(other.shape());
+            _access_pattern = makePatternLike<shape_type>(other);
             _container.resize(_access_pattern.extent());
          }
          details::copyTensorToTensor(other, *this);
