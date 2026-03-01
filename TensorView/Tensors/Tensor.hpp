@@ -1,6 +1,6 @@
 #pragma once
 #include "TensorView/Access/StandardPattern.hpp"
-#include "TensorView/Containers/OwningContainer.hpp"
+#include "TensorView/Containers/SharedContainer.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Tensors/TensorBase.hpp"
 
@@ -17,7 +17,7 @@ namespace tensor
     */
    template <typename Scalar, size_t NumDims, LinearOrder Order, MemorySpace MemSpace = MemorySpace::Host>
    using FCTensor =
-       details::TensorBase<details::StandardPattern<NumDims, Order>, details::OwningContainer<Scalar, MemSpace>, true>;
+       details::TensorBase<details::StandardPattern<NumDims, Order>, details::SharedContainer<Scalar, MemSpace>, true>;
 
    template <typename Scalar, size_t NumDims, MemorySpace MemSpace = MemorySpace::Host>
    using FTensor = FCTensor<Scalar, NumDims, LinearOrder::F, MemSpace>;
@@ -30,5 +30,5 @@ namespace tensor
 
    template <typename Scalar, size_t NumDims, LinearOrder Order, MemorySpace MemSpace>
    using PView =
-       details::TensorBase<details::StandardPattern<NumDims, Order>, details::OwningContainer<Scalar, MemSpace>, false>;
+       details::TensorBase<details::StandardPattern<NumDims, Order>, details::SharedContainer<Scalar, MemSpace>, false>;
 } // namespace tensor

@@ -1,5 +1,5 @@
 #pragma once
-#include "TensorView/Containers/OwningContainer.hpp"
+#include "TensorView/Containers/SharedContainer.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Shapes/CompareShapes.hpp"
 #include "TensorView/Utility/Memory.hpp"

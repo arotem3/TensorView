@@ -27,7 +27,7 @@ namespace tensor
       constexpr size_t NumDims = TensorType::numDims();
       using shape_type = details::StandardPattern<NumDims, Order>;
       auto shape = details::makePatternLike<shape_type>(tensor);
-      details::OwningContainer<value_type, MemSpace> container(shape.extent());
+      details::SharedContainer<value_type, MemSpace> container(shape.extent());
       return details::makeTensorBase<true>(std::move(shape), std::move(container));
    }
 

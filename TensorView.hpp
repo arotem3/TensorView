@@ -1,6 +1,6 @@
 #pragma once
 #include "TensorView/Containers/ContainerTraits.hpp"
-#include "TensorView/Containers/OwningContainer.hpp"
+#include "TensorView/Containers/SharedContainer.hpp"
 #include "TensorView/Containers/ViewContainer.hpp"
 #include "TensorView/Expressions/ExpressionBase.hpp"
 #include "TensorView/Expressions/ExpressionTraits.hpp"

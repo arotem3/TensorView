@@ -6,7 +6,7 @@
 namespace tensor::details
 {
    template <typename T, MemorySpace MemSpace>
-   class OwningContainer;
+   class SharedContainer;
 
    template <typename T, MemorySpace MemSpace>
    class ViewContainer
@@ -155,7 +155,7 @@ namespace tensor::details
       }
 
       template <typename U, MemorySpace MS>
-      static constexpr container_type from(const OwningContainer<U, MS> &other)
+      static constexpr container_type from(const SharedContainer<U, MS> &other)
          requires(compatibleMemorySpaces(MemSpace, MS))
       {
          return container_type(other.data(), other.capacity());

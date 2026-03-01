@@ -7,16 +7,16 @@
 namespace tensor::details
 {
    template <typename T, MemorySpace MemSpace = MemorySpace::Host>
-   class OwningContainer
+   class SharedContainer
    {
    private:
       std::shared_ptr<T[]> _data;
       index_t _capacity;
 
-      friend struct ContainerTraits<OwningContainer<T, MemSpace>>;
+      friend struct ContainerTraits<SharedContainer<T, MemSpace>>;
 
       template <typename U, MemorySpace MS>
-      friend class OwningContainer;
+      friend class SharedContainer;
 
    public:
       using value_type = T;
@@ -27,24 +27,24 @@ namespace tensor::details
       static constexpr MemorySpace memory_space = MemSpace;
 
       /**
-       * @brief Constructs an OwningContainer with the specified capacity.
+       * @brief Constructs an SharedContainer with the specified capacity.
        */
-      inline OwningContainer(index_t capacity = 0)
+      inline SharedContainer(index_t capacity = 0)
           : _data(tensor::allocate<T, MemSpace>(capacity), tensor::deleter<T, MemSpace>{}), _capacity{capacity}
       {}
 
-      ~OwningContainer() = default;
-      OwningContainer(const OwningContainer &) = default;
-      OwningContainer &operator=(const OwningContainer &) = default;
-      OwningContainer(OwningContainer &&) = default;
-      OwningContainer &operator=(OwningContainer &&) = default;
+      ~SharedContainer() = default;
+      SharedContainer(const SharedContainer &) = default;
+      SharedContainer &operator=(const SharedContainer &) = default;
+      SharedContainer(SharedContainer &&) = default;
+      SharedContainer &operator=(SharedContainer &&) = default;
 
       /**
-       * @brief Constructs an OwningContainer sharing the data of another OwningContainer.
+       * @brief Constructs an SharedContainer sharing the data of another SharedContainer.
        */
       template <typename U, MemorySpace MS>
          requires(compatibleMemorySpaces(MemSpace, MS))
-      inline OwningContainer(const OwningContainer<U, MS> &other) : _data(other._data), _capacity{other.capacity()}
+      inline SharedContainer(const SharedContainer<U, MS> &other) : _data(other._data), _capacity{other.capacity()}
       {}
 
       /**
@@ -79,7 +79,7 @@ namespace tensor::details
        */
       inline void resize(index_t new_capacity)
       {
-         TENSOR_CHECK(unique(), printf("Cannot resize OwningContainer with multiple references.\n"));
+         TENSOR_CHECK(unique(), printf("Cannot resize SharedContainer with multiple references.\n"));
 
          if (new_capacity <= _capacity)
             return;
@@ -104,7 +104,7 @@ namespace tensor::details
          TENSOR_DEBUG_ASSERT(_data, printf("Attempting to dereference nullptr.\n"));
 
          TENSOR_DEBUG_ASSERT(index < _capacity,
-                             printf("Index %ju out of bounds for OwningContainer of capacity %ju.\n",
+                             printf("Index %ju out of bounds for SharedContainer of capacity %ju.\n",
                                     static_cast<uintmax_t>(index), static_cast<uintmax_t>(_capacity)));
          return _data[index];
       }
@@ -119,7 +119,7 @@ namespace tensor::details
          TENSOR_DEBUG_ASSERT(_data, printf("Attempting to dereference nullptr.\n"));
 
          TENSOR_DEBUG_ASSERT(index < _capacity,
-                             printf("Index %ju out of bounds for OwningContainer of capacity %ju.\n",
+                             printf("Index %ju out of bounds for SharedContainer of capacity %ju.\n",
                                     static_cast<uintmax_t>(index), static_cast<uintmax_t>(_capacity)));
          return _data[index];
       }
@@ -136,10 +136,10 @@ namespace tensor::details
    };
 
    template <typename T, MemorySpace MemSpace>
-   struct ContainerTraits<OwningContainer<T, MemSpace>>
+   struct ContainerTraits<SharedContainer<T, MemSpace>>
    {
       using value_type = T;
-      using container_type = OwningContainer<T, MemSpace>;
+      using container_type = SharedContainer<T, MemSpace>;
 
       static constexpr bool owning()
       {
@@ -163,7 +163,7 @@ namespace tensor::details
 
       static inline auto makeView(const container_type &x)
       {
-         using rcview = OwningContainer<const T, MemSpace>;
+         using rcview = SharedContainer<const T, MemSpace>;
          return rcview(x);
       }
 
@@ -184,10 +184,10 @@ namespace tensor::details
          return rcview(x.data(), x.capacity());
       }
 
-      static void makeRView(container_type &&x) = delete; // cannot move an OwningContainer to a ViewContainer
+      static void makeRView(container_type &&x) = delete; // cannot move an SharedContainer to a ViewContainer
 
       template <typename U, MemorySpace MS>
-      static container_type from(const OwningContainer<U, MS> &other)
+      static container_type from(const SharedContainer<U, MS> &other)
       {
          return container_type(other);
       }
