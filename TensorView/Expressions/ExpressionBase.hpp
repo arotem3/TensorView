@@ -1,5 +1,6 @@
 #pragma once
 #include "TensorView/Macros.hpp"
+#include "TensorView/Utility/Memory.hpp"
 
 namespace tensor::details
 {
@@ -43,6 +44,15 @@ namespace tensor::details
       static constexpr index_t numDims()
       {
          return Derived::numDims();
+      }
+
+      /**
+       * @brief Returns the memory space of the expression.
+       * Delegates to the derived class implementation.
+       */
+      static constexpr MemorySpace memorySpace()
+      {
+         return Derived::memorySpace();
       }
 
       /**
@@ -159,6 +169,46 @@ namespace tensor::details
       auto end() const
       {
          return derived().end();
+      }
+
+      /**
+       * @brief Returns a persistent/reference view of the expression with the same data.
+       * Delegates to the derived class implementation.
+       */
+      auto view()
+      {
+         return derived().view();
+      }
+
+      /**
+       * @brief Returns a const persistent/reference view of the expression with the same data.
+       * Delegates to the derived class implementation.
+       */
+      auto view() const
+      {
+         return derived().view();
+      }
+
+      /**
+       * @brief Returns a raw view of the expression with the same data.
+       * Raw views do not guarantee data lifetime; the user is responsible for ensuring
+       * the underlying data remains valid.
+       * Delegates to the derived class implementation.
+       */
+      auto raw()
+      {
+         return derived().raw();
+      }
+
+      /**
+       * @brief Returns a const raw view of the expression with the same data.
+       * Raw views do not guarantee data lifetime; the user is responsible for ensuring
+       * the underlying data remains valid.
+       * Delegates to the derived class implementation.
+       */
+      auto raw() const
+      {
+         return derived().raw();
       }
 
    protected:
