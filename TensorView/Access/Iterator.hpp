@@ -53,14 +53,16 @@ namespace tensor::details
    class TensorIterator
    {
    public:
+      using multi_index = std::array<index_t, TensorType::numDims()>;
       using iterator_category = std::random_access_iterator_tag;
       using difference_type = std::ptrdiff_t;
       using value_type = typename TensorType::value_type;
-      using pointer = value_type *;
-      using reference = value_type &;
-
-   private:
-      using multi_index = std::array<index_t, TensorType::numDims()>;
+      using reference = decltype(std::declval<TensorType &>().at(std::declval<const multi_index &>()));
+      using const_reference = decltype(std::declval<const TensorType &>().at(std::declval<const multi_index &>()));
+      using pointer = std::conditional_t<std::is_lvalue_reference_v<reference>,
+                                         std::add_pointer_t<std::remove_reference_t<reference>>, void>;
+      using const_pointer = std::conditional_t<std::is_lvalue_reference_v<const_reference>,
+                                               std::add_pointer_t<std::remove_reference_t<const_reference>>, void>;
 
    private:
       TensorType _tensor;
@@ -105,7 +107,7 @@ namespace tensor::details
 
       constexpr TensorIterator(TensorType tensor, multi_index pos, bool end) : _tensor(tensor), _pos(pos), _end(end) {}
 
-      TENSOR_HOST_DEVICE reference operator*() const
+      TENSOR_HOST_DEVICE const_reference operator*() const
       {
          return _tensor.at(_pos);
       }
@@ -115,17 +117,19 @@ namespace tensor::details
          return _tensor.at(_pos);
       }
 
-      TENSOR_HOST_DEVICE pointer operator->() const
+      TENSOR_HOST_DEVICE const_pointer operator->() const
+         requires(!std::is_void_v<const_pointer>)
       {
          return &_tensor.at(_pos);
       }
 
       TENSOR_HOST_DEVICE pointer operator->()
+         requires(!std::is_void_v<pointer>)
       {
          return &_tensor.at(_pos);
       }
 
-      TENSOR_HOST_DEVICE reference operator[](difference_type n) const
+      TENSOR_HOST_DEVICE const_reference operator[](difference_type n) const
       {
          multi_index pos_plus_n = _pos;
          incrMultiIndex(pos_plus_n, _tensor, n);
