@@ -111,6 +111,27 @@ namespace tensor
       return nullptr;
    }
 
+   /// @brief Allocates an array with the memory space specified at runtime.
+   template <typename T>
+   inline T *allocate(size_t n, MemorySpace m = MemorySpace::Host)
+   {
+      switch (m)
+      {
+         case MemorySpace::Host:
+            return allocate<T, MemorySpace::Host>(n);
+#ifdef TENSOR_USE_CUDA
+         case MemorySpace::Device:
+            return allocate<T, MemorySpace::Device>(n);
+         case MemorySpace::Managed:
+            return allocate<T, MemorySpace::Managed>(n);
+#endif
+         case MemorySpace::Unspecified:
+         default:
+            TENSOR_CHECK(false, printf("Unknown memory space in allocate.\n"));
+            return nullptr;
+      }
+   }
+
    template <typename T>
    inline void deallocate(T *ptr, MemorySpace m)
    {

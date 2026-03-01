@@ -1,4 +1,6 @@
 #pragma once
+#include <memory>
+
 #include "TensorView/Access/computeLinearIndex.hpp"
 #include "TensorView/Macros.hpp"
 
@@ -20,7 +22,7 @@ namespace tensor::details
    template <typename TensorType, size_t NumDims>
    constexpr std::ptrdiff_t incrMultiIndex(std::array<index_t, NumDims> &indices, const TensorType &t)
    {
-      for (index_t d = NumDims; d-- > 0;)
+      for (index_t d = 0; d < NumDims; ++d)
       {
          if (++indices[d] < t.shape(d))
             return 0;
@@ -32,7 +34,7 @@ namespace tensor::details
    template <typename TensorType, size_t NumDims>
    constexpr std::ptrdiff_t incrMultiIndex(std::array<index_t, NumDims> &indices, const TensorType &t, std::ptrdiff_t n)
    {
-      for (index_t d = NumDims; d-- > 0 && n != 0;)
+      for (index_t d = 0; d < NumDims && n != 0; ++d)
       {
          const std::ptrdiff_t dim = t.shape(d);
          const std::ptrdiff_t sum = static_cast<std::ptrdiff_t>(indices[d]) + n;
@@ -50,12 +52,14 @@ namespace tensor::details
    template <typename TensorType>
    class TensorIterator
    {
-   private:
+   public:
       using iterator_category = std::random_access_iterator_tag;
       using difference_type = std::ptrdiff_t;
       using value_type = typename TensorType::value_type;
       using pointer = value_type *;
       using reference = value_type &;
+
+   private:
       using multi_index = std::array<index_t, TensorType::numDims()>;
 
    private:
@@ -67,8 +71,32 @@ namespace tensor::details
       constexpr TensorIterator() = default;
       constexpr TensorIterator(const TensorIterator &) = default;
       constexpr TensorIterator(TensorIterator &&) = default;
-      constexpr TensorIterator &operator=(const TensorIterator &) = default;
-      constexpr TensorIterator &operator=(TensorIterator &&) = default;
+
+      // Explicitly implement assignment to work even when TensorType has const elements
+      // (and thus TensorType's assignment operators are deleted due to _is_mutable constraint)
+      constexpr TensorIterator &operator=(const TensorIterator &other)
+      {
+         if (this != &other)
+         {
+            std::destroy_at(&_tensor);
+            std::construct_at(&_tensor, other._tensor);
+            _pos = other._pos;
+            _end = other._end;
+         }
+         return *this;
+      }
+
+      constexpr TensorIterator &operator=(TensorIterator &&other) noexcept
+      {
+         if (this != &other)
+         {
+            std::destroy_at(&_tensor);
+            std::construct_at(&_tensor, std::move(other._tensor));
+            _pos = std::move(other._pos);
+            _end = other._end;
+         }
+         return *this;
+      }
 
       constexpr TensorIterator(TensorType tensor, difference_type pos = 0) : _tensor(tensor), _pos{}
       {

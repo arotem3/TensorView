@@ -22,9 +22,7 @@ namespace tensor::details
    {
       if constexpr (MemSpace == MemorySpace::Host)
       {
-         const index_t n = src.size();
-         for (index_t i = 0; i < n; ++i)
-            dst[i] = src[i];
+         std::ranges::copy(src.begin(), src.end(), dst);
       }
       else
       {
@@ -135,9 +133,7 @@ namespace tensor::details
                              printf("cudaDeviceSynchronize failed after copyTensorToTensor\n"));
       }
 #else
-      const index_t n = src.size();
-      for (index_t i = 0; i < n; ++i)
-         dst[i] = src[i];
+      std::ranges::copy(src.begin(), src.end(), dst.begin());
 #endif
    }
 } // namespace tensor::details
