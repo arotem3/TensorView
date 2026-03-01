@@ -45,7 +45,7 @@ namespace tensor
 
       auto [layout, index_set] = unpackAccessPattern(makeStridedPatternFrom(x.shape()));
 
-      StridedLayout<numDims> permuted_layout{{layout.dimensions[permutation]...}};
+      StridedLayout<numDims> permuted_layout{{layout.dimensions[permutation]...}, layout.start};
       auto permuted_index_set = details::selectFromIndexSet(index_set, permutation...);
 
       return makeView(makeAccessPattern(std::move(permuted_layout), std::move(permuted_index_set)),
