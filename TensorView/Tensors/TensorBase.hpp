@@ -3,6 +3,7 @@
 #include "TensorView/Access/Iterator.hpp"
 #include "TensorView/Access/makePatternFrom.hpp"
 #include "TensorView/Containers/ContainerTraits.hpp"
+#include "TensorView/Containers/StaticContainer.hpp"
 #include "TensorView/Tensors/TensorTraits.hpp"
 #include "TensorView/Utility/Copy.hpp"
 #include "TensorView/Utility/InitializerTensor.hpp"

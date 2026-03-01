@@ -1,6 +1,6 @@
 #pragma once
 #include "TensorView/Layouts/StandardLayout.hpp"
-#include "TensorView/Layouts/StridedLayout.hpp"
+#include "TensorView/Layouts/StaticLayout.hpp"
 #include "TensorView/Macros.hpp"
 
 namespace tensor::details

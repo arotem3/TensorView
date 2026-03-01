@@ -2,6 +2,7 @@
 #include "TensorView/Containers/ContainerTraits.hpp"
 #include "TensorView/Containers/OwningContainer.hpp"
 #include "TensorView/Containers/ViewContainer.hpp"
+#include "TensorView/LinearAlgebra/LAPACKView.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Shapes/CompareShapes.hpp"
 #include "TensorView/Tensors/StaticTView.hpp"
