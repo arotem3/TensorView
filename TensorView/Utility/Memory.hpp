@@ -244,8 +244,7 @@ namespace tensor
     */
    template <typename T>
    inline void synchronizeMemory(T *, size_t, MemorySpace, MemorySpace)
-   {
-   }
+   {}
 #endif
 } // namespace tensor
 
@@ -280,6 +279,7 @@ namespace tensor::details
              (b == MemorySpace::Host || b == MemorySpace::Unspecified);
 #endif
    }
+
 } // namespace tensor::details
 
 #ifdef TENSOR_USE_CUDA

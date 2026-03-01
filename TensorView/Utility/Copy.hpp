@@ -1,5 +1,6 @@
 #pragma once
 #include "TensorView/Containers/SharedContainer.hpp"
+#include "TensorView/Expressions/ExpressionTraits.hpp"
 #include "TensorView/Macros.hpp"
 #include "TensorView/Shapes/CompareShapes.hpp"
 #include "TensorView/Utility/Memory.hpp"
@@ -20,14 +21,14 @@ namespace tensor::details
    template <MemorySpace MemSpace, typename Src, typename Dst>
    inline void copyTensorToArray(const Src &src, Dst *dst)
    {
-      if constexpr (MemSpace == MemorySpace::Host)
+      if constexpr (MemSpace == MemorySpace::Host || MemSpace == MemorySpace::Unspecified)
       {
          std::ranges::copy(src.begin(), src.end(), dst);
       }
       else
       {
 #ifdef TENSOR_USE_CUDA
-         auto rview = src.makeRawView();
+         auto rview = src.raw();
 
          const index_t n = rview.size();
          const index_t blockSize = 256;
@@ -56,7 +57,7 @@ namespace tensor::details
    template <MemorySpace MemSpace, typename Src, typename Dst>
    inline void copyArrayToTensor(const Src *src, Dst &dst)
    {
-      if constexpr (MemSpace == MemorySpace::Host)
+      if constexpr (MemSpace == MemorySpace::Host || MemSpace == MemorySpace::Unspecified)
       {
          const index_t n = dst.size();
          for (index_t i = 0; i < n; ++i)
@@ -65,7 +66,7 @@ namespace tensor::details
       else
       {
 #ifdef TENSOR_USE_CUDA
-         auto rview = dst.makeRawView();
+         auto rview = dst.raw();
 
          const index_t n = rview.size();
          const index_t blockSize = 256;
@@ -91,16 +92,11 @@ namespace tensor::details
    }
 #endif
 
-   template <typename Src, typename Dst>
+   template <Expression Src, Expression Dst>
    inline void copyTensorToTensor(const Src &src, Dst &dst)
    {
-      using ct_src = ContainerTraits<typename std::decay_t<Src>::container_type>;
-      using ct_dst = ContainerTraits<typename std::decay_t<Dst>::container_type>;
-
-      static_assert(ct_dst::mutableElements(), "destination container must be mutable.");
-
-      using src_t = typename ct_src::value_type;
-      using dst_t = typename ct_dst::value_type;
+      using src_t = typename std::remove_cvref_t<Src>::value_type;
+      using dst_t = typename std::remove_cvref_t<Dst>::value_type;
 
       static_assert(std::is_convertible_v<src_t, dst_t>,
                     "source value_type must be convertible to destination value_type.");
@@ -108,29 +104,36 @@ namespace tensor::details
       TENSOR_REQUIRE_EQUAL_SHAPES(src, dst);
 
 #ifdef TENSOR_USE_CUDA
-      constexpr MemorySpace ms_src = ct_src::memorySpace();
-      constexpr MemorySpace ms_dst = ct_dst::memorySpace();
+      constexpr MemorySpace ms_src = std::remove_cvref_t<Src>::memorySpace();
+      constexpr MemorySpace ms_dst = std::remove_cvref_t<Dst>::memorySpace();
 
-      // If the memory spaces are not compatible, use managed memory as an intermediate buffer.
       if constexpr (!compatibleMemorySpaces(ms_src, ms_dst))
       {
-         auto tmp = allocate<MemorySpace::Managed, dst_t>(src.size());
+         auto tmp = allocate<dst_t, MemorySpace::Managed>(src.size());
          copyTensorToArray<ms_src>(src, tmp);
          copyArrayToTensor<ms_dst>(tmp, dst);
-         deallocate<MemorySpace::Managed>(tmp);
+         deallocate<dst_t, MemorySpace::Managed>(tmp);
          return;
       }
       else
       {
-         auto rview_src = src.raw();
-         auto rview_dst = dst.raw();
-         const index_t n = rview_src.size();
-         const index_t blockSize = 256;
-         const index_t numBlocks = (n + blockSize - 1) / blockSize;
+         if constexpr ((ms_src == MemorySpace::Host || ms_src == MemorySpace::Unspecified) &&
+                       (ms_dst == MemorySpace::Host || ms_dst == MemorySpace::Unspecified))
+         {
+            std::ranges::copy(src.begin(), src.end(), dst.begin());
+         }
+         else
+         {
+            auto rview_src = src.raw();
+            auto rview_dst = dst.raw();
+            const index_t n = rview_src.size();
+            const index_t blockSize = 256;
+            const index_t numBlocks = (n + blockSize - 1) / blockSize;
 
-         copyTensorToTensorKernel<<<numBlocks, blockSize>>>(rview_src, rview_dst);
-         TENSOR_DEBUG_ASSERT(cudaDeviceSynchronize() == cudaSuccess,
-                             printf("cudaDeviceSynchronize failed after copyTensorToTensor\n"));
+            copyTensorToTensorKernel<MemorySpace::Managed><<<numBlocks, blockSize>>>(rview_src, rview_dst);
+            TENSOR_DEBUG_ASSERT(cudaDeviceSynchronize() == cudaSuccess,
+                                printf("cudaDeviceSynchronize failed after copyTensorToTensor\n"));
+         }
       }
 #else
       std::ranges::copy(src.begin(), src.end(), dst.begin());
