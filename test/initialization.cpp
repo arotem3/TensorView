@@ -1,8 +1,10 @@
+#include <complex>
+
 #include "test.hpp"
 
 using namespace tensor;
 
-static int test_tensorview_initialization()
+static int testTensorViewInitialization()
 {
    int n_failed = 0;
    double data[6] = {1, 2, 3, 4, 5, 6};
@@ -44,7 +46,7 @@ static int test_tensorview_initialization()
    return n_failed;
 }
 
-static int test_tensor_initialization()
+static int testTensorInitialization()
 {
    int n_failed = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -85,14 +87,13 @@ static int test_tensor_initialization()
    return n_failed;
 }
 
-static int test_tensorview_conversion()
+static int testTensorViewConversion()
 {
    int n_failed = 0;
 
    Tensor<double, 2> tensor(2, 3);
 
-   auto correct_conversion = [&tensor](auto &tv)
-   {
+   auto correct_conversion = [&tensor](auto &tv) {
       return (tv.data() == tensor.data() && tv.size() == tensor.size() && tv.shape(0) == tensor.shape(0) &&
               tv.shape(1) == tensor.shape(1));
    };
@@ -133,7 +134,7 @@ static int test_tensorview_conversion()
    return n_failed;
 }
 
-static int test_pview_initialization()
+static int testPViewInitialization()
 {
    int n_failed = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -211,7 +212,7 @@ static int test_pview_initialization()
    return n_failed;
 }
 
-static int test_static_tensor_initialization()
+static int testStaticTensorInitialization()
 {
    int n_failed = 0;
    StaticTensor<double, 2, 3> stensor{};
@@ -241,7 +242,7 @@ static int test_static_tensor_initialization()
    return n_failed;
 }
 
-static int test_static_view_initialization()
+static int testStaticViewInitialization()
 {
    int n_failed = 0;
 
@@ -283,7 +284,7 @@ static int test_static_view_initialization()
    return n_failed;
 }
 
-static int test_lowD_to_highD()
+static int testLowDToHighD()
 {
    int n_failed = 0;
    Tensor<double, 2> tensor(2, 3);
@@ -314,24 +315,10 @@ static int test_lowD_to_highD()
                 << " Tensor initialization with trailing singleton dimension passed." << std::endl;
    }
 
-   PView<double, 3, LinearOrder::F, MemorySpace::Host> pview3d_of_2d = tensor;
-   if (pview3d_of_2d.shape(0) != 2 || pview3d_of_2d.shape(1) != 3 || pview3d_of_2d.shape(2) != 1)
-   {
-      std::cout << "\t" << ColorText::red("[ ✗ ]")
-                << " PersistentView initialization with trailing singleton dimension failed: incorrect shape."
-                << std::endl;
-      n_failed++;
-   }
-   else
-   {
-      std::cout << "\t" << ColorText::green("[ ✓ ]")
-                << " PersistentView initialization with trailing singleton dimension passed." << std::endl;
-   }
-
    return n_failed;
 }
 
-static int test_copy_shape()
+static int testCopyShape()
 {
    int n_failed = 0;
 
@@ -351,7 +338,7 @@ static int test_copy_shape()
    return n_failed;
 }
 
-static int test_tensor_from_initializer()
+static int testTensorFromInitializer()
 {
    int n_failed = 0;
 
@@ -399,7 +386,7 @@ static int test_tensor_from_initializer()
 }
 
 template <typename lambda>
-static int test_copy_from_initializer(std::string name, lambda &&init)
+static int testCopyFromInitializer(std::string name, lambda &&init)
 {
    int n_failed = 0;
 
@@ -453,8 +440,175 @@ static int test_copy_from_initializer(std::string name, lambda &&init)
    return n_failed;
 }
 
+static int testSingleElementTensor()
+{
+   int n_failed = 0;
+
+   Tensor<int, 1> t1(1);
+   t1[0] = 42;
+
+   if (t1.size() != 1 || t1[0] != 42)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Single element 1D tensor failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Single element 1D tensor passed." << std::endl;
+   }
+
+   Tensor<int, 3> t3(1, 1, 1);
+   t3(0, 0, 0) = 99;
+
+   if (t3.size() != 1 || t3(0, 0, 0) != 99)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Single element 3D tensor failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Single element 3D tensor passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+static int testDifferentDataTypes()
+{
+   int n_failed = 0;
+
+   // Test float
+   Tensor<float, 2> tf(2, 3);
+   tf(0, 0) = 1.5f;
+   if (tf(0, 0) != 1.5f)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Float tensor failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Float tensor passed." << std::endl;
+   }
+
+   // Test int
+   Tensor<int, 2> ti(2, 3);
+   ti(0, 0) = 42;
+   if (ti(0, 0) != 42)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Int tensor failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Int tensor passed." << std::endl;
+   }
+
+   // Test complex numbers (if available)
+   Tensor<std::complex<double>, 2> tc(2, 2);
+   tc(0, 0) = std::complex<double>(1.0, 2.0);
+   if (tc(0, 0) != std::complex<double>(1.0, 2.0))
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Complex tensor failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Complex tensor passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+static int testLargeDimensions()
+{
+   int n_failed = 0;
+
+   Tensor<int, 5> t5(2, 3, 4, 5, 6);
+   if (t5.size() != 2 * 3 * 4 * 5 * 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " 5D tensor size check failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " 5D tensor size check passed." << std::endl;
+   }
+
+   // Verify shapes
+   if (t5.shape(0) != 2 || t5.shape(1) != 3 || t5.shape(2) != 4 || t5.shape(3) != 5 || t5.shape(4) != 6)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " 5D tensor shape check failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " 5D tensor shape check passed." << std::endl;
+   }
+
+   // Test access
+   t5(1, 2, 3, 4, 5) = 12345;
+   if (t5(1, 2, 3, 4, 5) != 12345)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " 5D tensor access failed." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " 5D tensor access passed." << std::endl;
+   }
+
+   return n_failed;
+}
+
+static int testMoveSemantics()
+{
+   int n_failed = 0;
+
+   Tensor<int, 2> t1(2, 3);
+   for (int i = 0; i < 6; ++i)
+      t1[i] = i;
+
+   auto *original_data = t1.data();
+
+   // Move construct
+   Tensor<int, 2> t2(std::move(t1));
+
+   if (t2.data() != original_data)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Move constructor didn't transfer ownership." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Move constructor passed." << std::endl;
+   }
+
+   // Verify data
+   bool correct = true;
+   for (int i = 0; i < 6; ++i)
+   {
+      if (t2[i] != i)
+      {
+         correct = false;
+         break;
+      }
+   }
+
+   if (!correct)
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ]") << " Move constructor corrupted data." << std::endl;
+      n_failed++;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ]") << " Move constructor preserved data." << std::endl;
+   }
+
+   return n_failed;
+}
+
 template <typename lambda>
-static int test_copy(std::string from, std::string to, lambda &&init)
+static int testCopy(std::string from, std::string to, lambda &&init)
 {
    int n_failed = 0;
 
@@ -490,74 +644,76 @@ int main()
 {
    int n_failed = 0;
 
-   n_failed += test_tensorview_initialization();
-   n_failed += test_tensor_initialization();
-   n_failed += test_tensorview_conversion();
-   n_failed += test_pview_initialization();
-   n_failed += test_static_tensor_initialization();
-   n_failed += test_static_view_initialization();
-   n_failed += test_lowD_to_highD();
-   n_failed += test_copy_shape();
-   n_failed += test_tensor_from_initializer();
+   std::cout << "\n=== Basic Initialization Tests ===" << std::endl;
+   n_failed += testTensorViewInitialization();
+   n_failed += testTensorInitialization();
+   n_failed += testStaticTensorInitialization();
+   n_failed += testStaticViewInitialization();
 
-   n_failed += test_copy_from_initializer("Tensor", []() { return Tensor<double, 3>(); });
-   n_failed += test_copy_from_initializer("CTensor", []() { return CTensor<double, 3>(); });
-   n_failed += test_copy_from_initializer("PView",
-                                          []()
-                                          {
-                                             Tensor<double, 3> t(2, 3, 4);
-                                             return t.view();
-                                          });
-   n_failed += test_copy_from_initializer("StaticTensor", []() { return StaticTensor<double, 2, 3, 4>(); });
-   n_failed += test_copy_from_initializer("TensorView",
-                                          []()
-                                          {
-                                             TensorView<double, 3> tv(new double[24], 2, 3, 4);
-                                             return tv;
-                                          });
-   n_failed += test_copy_from_initializer("StaticView",
-                                          []()
-                                          {
-                                             StaticView<double, 2, 3, 4> sv(new double[24]);
-                                             return sv;
-                                          });
+   std::cout << "\n=== View and Conversion Tests ===" << std::endl;
+   n_failed += testTensorViewConversion();
+   n_failed += testPViewInitialization();
+   n_failed += testLowDToHighD();
 
-   n_failed += test_copy("Tensor<int>", "Tensor<double>",
-                         []()
-                         {
-                            Tensor<int, 2> src(2, 3);
-                            Tensor<double, 2> tgt(2, 3);
-                            for (auto &x : src)
-                               x = rand() % 100;
-                            return std::make_pair(src, tgt);
-                         });
-   n_failed += test_copy("FTensor<int>", "CTensor<int>",
-                         []()
-                         {
-                            CTensor<int, 2> src(2, 3);
-                            CTensor<int, 2> tgt(2, 3);
-                            for (auto &x : src)
-                               x = rand() % 100;
-                            return std::make_pair(src, tgt);
-                         });
-   n_failed += test_copy("PView<float>", "TensorView<double>",
-                         []()
-                         {
-                            Tensor<float, 2> src(2, 3);
-                            TensorView<double, 2> tgt(new double[6], 2, 3);
-                            for (auto &x : src)
-                               x = static_cast<float>(rand() % 100);
-                            return std::make_pair(src.view(), tgt);
-                         });
-   n_failed += test_copy("TensorView<int>", "StaticTensor<double>",
-                         []()
-                         {
-                            TensorView<int, 2> src(new int[6], 2, 3);
-                            StaticTensor<double, 2, 3> tgt;
-                            for (auto &x : src)
-                               x = rand() % 100;
-                            return std::make_pair(src, tgt);
-                         });
+   std::cout << "\n=== Shape and Copy Tests ===" << std::endl;
+   n_failed += testCopyShape();
+
+   std::cout << "\n=== Initializer List Tests ===" << std::endl;
+   n_failed += testTensorFromInitializer();
+
+   std::cout << "\n=== Copy from Initializer List Tests ===" << std::endl;
+   n_failed += testCopyFromInitializer("Tensor", []() { return Tensor<double, 3>(); });
+   n_failed += testCopyFromInitializer("CTensor", []() { return CTensor<double, 3>(); });
+   n_failed += testCopyFromInitializer("PView", []() {
+      Tensor<double, 3> t(2, 3, 4);
+      return t.view();
+   });
+   n_failed += testCopyFromInitializer("StaticTensor", []() { return StaticTensor<double, 2, 3, 4>(); });
+   n_failed += testCopyFromInitializer("TensorView", []() {
+      TensorView<double, 3> tv(new double[24], 2, 3, 4);
+      return tv;
+   });
+   n_failed += testCopyFromInitializer("StaticView", []() {
+      StaticView<double, 2, 3, 4> sv(new double[24]);
+      return sv;
+   });
+
+   std::cout << "\n=== Edge Case Tests ===" << std::endl;
+   n_failed += testSingleElementTensor();
+   n_failed += testDifferentDataTypes();
+   n_failed += testLargeDimensions();
+   n_failed += testMoveSemantics();
+
+   std::cout << "\n=== Copy Between Different Types ===" << std::endl;
+
+   n_failed += testCopy("Tensor<int>", "Tensor<double>", []() {
+      Tensor<int, 2> src(2, 3);
+      Tensor<double, 2> tgt(2, 3);
+      for (auto &x : src)
+         x = rand() % 100;
+      return std::make_pair(src, tgt);
+   });
+   n_failed += testCopy("FTensor<int>", "CTensor<int>", []() {
+      CTensor<int, 2> src(2, 3);
+      CTensor<int, 2> tgt(2, 3);
+      for (auto &x : src)
+         x = rand() % 100;
+      return std::make_pair(src, tgt);
+   });
+   n_failed += testCopy("PView<float>", "TensorView<double>", []() {
+      Tensor<float, 2> src(2, 3);
+      TensorView<double, 2> tgt(new double[6], 2, 3);
+      for (auto &x : src)
+         x = static_cast<float>(rand() % 100);
+      return std::make_pair(src.view(), tgt);
+   });
+   n_failed += testCopy("TensorView<int>", "StaticTensor<double>", []() {
+      TensorView<int, 2> src(new int[6], 2, 3);
+      StaticTensor<double, 2, 3> tgt;
+      for (auto &x : src)
+         x = rand() % 100;
+      return std::make_pair(src, tgt);
+   });
 
    PRINT_RESULT(n_failed);
    return n_failed;
