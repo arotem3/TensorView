@@ -4,6 +4,7 @@
 #include "TensorView/Access/makePatternFrom.hpp"
 #include "TensorView/Containers/ContainerTraits.hpp"
 #include "TensorView/Containers/StaticContainer.hpp"
+#include "TensorView/Expressions/ExpressionBase.hpp"
 #include "TensorView/Tensors/TensorTraits.hpp"
 #include "TensorView/Utility/Copy.hpp"
 #include "TensorView/Utility/InitializerTensor.hpp"
@@ -49,7 +50,7 @@ namespace tensor::details
    }
 
    template <typename AccessPattern, typename Container, bool Owner>
-   class TensorBase
+   class TensorBase : public ExpressionBase<TensorBase<AccessPattern, Container, Owner>>
    {
    public:
       using container_type = Container;
