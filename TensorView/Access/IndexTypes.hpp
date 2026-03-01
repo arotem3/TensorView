@@ -32,7 +32,7 @@ namespace tensor
       {
          if (begin >= end)
             return 0;
-         return (end - begin) / stride;
+         return (end - begin + stride - 1) / stride;
       }
 
       constexpr index_t operator[](index_t i) const

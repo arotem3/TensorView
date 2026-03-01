@@ -116,12 +116,15 @@ namespace tensor::details
       const auto st = makeStridedLayoutFrom<InputDims>(embedding);
       std::array<index_t, InputDims> offsets = {0};
       StridedLayout<OutputDims> collapsed;
+      index_t dim = 0;
 
-      // Process each dimension: simplify and collect non-collapsed indices
-      index_t i = 0, dim = 0;
-      auto processed_index_set = std::tuple_cat([&]() {
-         StridedDimension sdim = st.dimensions[i];
-         auto index = simplifyIndexInStridedLayout(offsets[i++], sdim, std::get<I>(indices));
+      // Process the indices one by one, and collect into a tuple of tuples, then concatenate at the end.
+      // The processed_index_set MUST be constructed this way to ensure that the order of evaluation is from left to
+      // right (guaranteed by brace initializer), which guarantees that offsets are set correctly for each dimension
+      // simplification.
+      auto tuple_of_results = std::tuple{[&]() {
+         StridedDimension sdim = st.dimensions[I];
+         auto index = simplifyIndexInStridedLayout(offsets[I], sdim, std::get<I>(indices));
 
          if constexpr (std::is_same_v<decltype(index), CollapsedDimMarker>)
             return std::tuple<>{};
@@ -130,9 +133,11 @@ namespace tensor::details
             collapsed.dimensions[dim++] = sdim;
             return std::make_tuple(std::move(index));
          }
-      }()...);
+      }()...};
 
-      collapsed.start = embedding.offset() + st.at(offsets);
+      auto processed_index_set = std::apply([](auto... args) { return std::tuple_cat(args...); }, tuple_of_results);
+
+      collapsed.start = st.at(offsets);
 
       TENSOR_DEBUG_ASSERT(
           validateSizes(collapsed, processed_index_set, std::make_index_sequence<OutputDims>{}),

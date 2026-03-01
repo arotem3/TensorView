@@ -90,7 +90,7 @@ namespace tensor::details
       AccessPattern &operator=(const AccessPattern &) = default;
       AccessPattern &operator=(AccessPattern &&) = default;
 
-      explicit AccessPattern(Layout &&layout_, CartesianIndexSet<N> &&index_set_)
+      AccessPattern(Layout layout_, CartesianIndexSet<N> index_set_)
           : layout(std::move(layout_)), index_set(std::move(index_set_))
       {}
 
@@ -179,7 +179,7 @@ namespace tensor::details
       AccessPattern &operator=(const AccessPattern &) = default;
       AccessPattern &operator=(AccessPattern &&) = default;
 
-      explicit AccessPattern(Layout &&layout_) : layout(std::move(layout_)) {}
+      AccessPattern(Layout layout_) : layout(std::move(layout_)) {}
 
    public:
       friend auto unpackAccessPattern(AccessPattern<Layout, AllProduct<N>> &&pattern)
