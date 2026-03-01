@@ -4,13 +4,19 @@
 namespace tensor::details
 {
    /**
-    * @brief Checks if two tensors have the same shape.
-    * If one has more dimensions than the other, then the leading dimensions must match and the trailing dimensions of
-    * the higher-dimensional tensor must be singleton dimensions.
+    * @brief Checks if two tensors have compatible shapes for broadcasting.
+    * 0-dimensional expressions (scalars) are compatible with any shape (they broadcast).
+    * For non-scalar tensors:
+    * - The leading dimensions must match exactly
+    * - Any trailing dimensions (in the higher-dimensional tensor) must be singleton (1)
     */
    template <typename TensorA, typename TensorB>
    constexpr bool sameShape(const TensorA &a, const TensorB &b)
    {
+      // 0-dimensional expressions (scalars) are compatible with anything
+      if (a.numDims() == 0 || b.numDims() == 0)
+         return true;
+
       const index_t n = std::min(a.numDims(), b.numDims());
 
       for (index_t i = 0; i < n; ++i)

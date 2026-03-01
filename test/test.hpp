@@ -4,6 +4,8 @@
 
 #include "TensorView.hpp"
 
+using namespace tensor::operators;
+
 class ColorText
 {
 public:
