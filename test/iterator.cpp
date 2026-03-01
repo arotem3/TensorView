@@ -18,6 +18,19 @@ static int testIteratorTraits(const std::string &name)
       n_fails++;
    }
 
+   using const_iterator_t = decltype(std::declval<const T &>().begin());
+   if (std::input_iterator<const_iterator_t>)
+   {
+      std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::(const T).begin() is an input iterator."
+                << std::endl;
+   }
+   else
+   {
+      std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::(const T).begin() is NOT an input iterator."
+                << std::endl;
+      n_fails++;
+   }
+
    if (std::ranges::output_range<T, typename T::value_type>)
    {
       std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::iterator is an output iterator." << std::endl;
@@ -52,6 +65,93 @@ static int testIteratorTraits(const std::string &name)
       {
          std::cout << "\t" << ColorText::red("[ ✗ ] ") << name
                    << "::const_iterator is NOT a contiguous iterator but it should be." << std::endl;
+         n_fails++;
+      }
+   }
+
+   // Check subview iterator traits
+   if constexpr (requires { std::declval<T &>().at(0, All{}); })
+   {
+      using subview_t = decltype(std::declval<T &>().at(0, All{}));
+      if (std::ranges::range<subview_t>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::subview is a range." << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::subview is NOT a range." << std::endl;
+         n_fails++;
+      }
+
+      using const_subview_t = decltype(std::declval<const T &>().at(0, All{}));
+      using const_subview_iter_t = decltype(std::declval<const_subview_t &>().begin());
+      if (std::input_iterator<const_subview_iter_t>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::(const subview).begin() is an input iterator."
+                   << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::(const subview).begin() is NOT an input iterator."
+                   << std::endl;
+         n_fails++;
+      }
+   }
+
+   // Check raw view iterator traits
+   if constexpr (requires { std::declval<T &>().raw(); })
+   {
+      using raw_t = decltype(std::declval<T &>().raw());
+      if (std::ranges::range<raw_t>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::raw_view is a range." << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::raw_view is NOT a range." << std::endl;
+         n_fails++;
+      }
+
+      using const_raw_t = decltype(std::declval<const T &>().raw());
+      using const_raw_iter_t = decltype(std::declval<const_raw_t &>().begin());
+      if (std::input_iterator<const_raw_iter_t>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::(const raw_view).begin() is an input iterator."
+                   << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::(const raw_view).begin() is NOT an input iterator."
+                   << std::endl;
+         n_fails++;
+      }
+   }
+
+   // Check permuted dimensions iterator traits (transpose)
+   if constexpr (requires { tensor::transpose(std::declval<T &>()); })
+   {
+      using permuted_t = decltype(tensor::transpose(std::declval<T &>()));
+      if (std::ranges::range<permuted_t>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::transpose is a range." << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name << "::transpose is NOT a range." << std::endl;
+         n_fails++;
+      }
+
+      using const_permuted_t = decltype(tensor::transpose(std::declval<const T &>()));
+      using const_permuted_iter_t = decltype(std::declval<const_permuted_t &>().begin());
+      if (std::input_iterator<const_permuted_iter_t>)
+      {
+         std::cout << "\t" << ColorText::green("[ ✓ ] ") << name << "::(const transpose).begin() is an input iterator."
+                   << std::endl;
+      }
+      else
+      {
+         std::cout << "\t" << ColorText::red("[ ✗ ] ") << name
+                   << "::(const transpose).begin() is NOT an input iterator." << std::endl;
          n_fails++;
       }
    }
